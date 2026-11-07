@@ -1,0 +1,17 @@
+# Dependencias y builds
+node_modules/
+dist/
+.angular/
+
+# Secretos y configuracion local (NUNCA subir)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs / sistema / editores
+*.log
+.DS_Store
+Thumbs.db
+.idea/

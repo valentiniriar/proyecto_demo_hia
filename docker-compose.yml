@@ -1,0 +1,38 @@
+# Base de datos relacional (PostgreSQL) para el proyecto.
+# Uso:  docker compose up -d
+# Los scripts de ./database se ejecutan automaticamente la PRIMERA vez que se crea el volumen.
+# Para reiniciar la BD desde cero:  docker compose down -v && docker compose up -d
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: demo_hia_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-demo_hia}
+      POSTGRES_USER: ${DB_USER:-demo_hia}
+      POSTGRES_PASSWORD: ${DB_PASS:-demo_hia_pass}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Administrador web de la BD (opcional): docker compose --profile tools up -d
+  adminer:
+    image: adminer:4
+    container_name: demo_hia_adminer
+    profiles: ["tools"]
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+
+volumes:
+  db_data:
