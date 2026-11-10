@@ -145,5 +145,5 @@ El backend mantiene `sequelize.sync()` al arrancar: si una tabla no existe la cr
 ## Notas para el equipo
 
 - **Nunca subir `.env`** (está en `.gitignore`); solo se versiona `.env.example`.
-- Flujo sugerido: una rama por tarea (`feature/...`), Pull Request hacia `main`, y revisión de al menos otra persona.
+- Flujo de trabajo (ramas, commits, Pull Requests y Definition of Done): ver [`CONTRIBUTING.md`](CONTRIBUTING.md). Resumen: rama `feature/SCRUM-XX-...` desde `develop`, PR hacia `develop` con revisión de al menos otra persona, y `develop → main` al cierre de cada sprint.
 - Las URLs de la API están escritas a mano en `frontend/src/app/services/*.ts` (`http://localhost:3000/...`); si se despliega, conviene centralizarlas en un `environment`.
