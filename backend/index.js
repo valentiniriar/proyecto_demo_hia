@@ -11,7 +11,18 @@ var app = express();
 app.use(express.json());
 app.use(cors({origin: ['http://localhost:4200', 'https://localhost:4200']}));
 
-//rutas para mercado pago 
+// Salud del servicio: lo usan el HEALTHCHECK de Docker, el deploy del CI/CD y el monitoreo.
+// 200 si la API responde y la base acepta conexiones; 503 si la base no está disponible.
+app.get('/api/health', async (req, res) => {
+    try {
+        await sequelize.authenticate();
+        res.json({ status: 'ok', db: 'up', uptime: Math.round(process.uptime()) });
+    } catch (error) {
+        res.status(503).json({ status: 'error', db: 'down' });
+    }
+});
+
+//rutas para mercado pago
 app.use('/api/mp', require('./src/routes/mp.route.js'));
 
 // Associations

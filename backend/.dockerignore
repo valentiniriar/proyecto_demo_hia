@@ -1,0 +1,15 @@
+# No copiar a la imagen: dependencias locales, secretos, scripts sueltos ni artefactos de desarrollo.
+node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.example
+test_mp.js
+*.test.js
+tests/
+coverage/
+.git
+.gitignore
+.dockerignore
+Dockerfile
+README.md
