@@ -1,7 +1,8 @@
 const Usuario = require('../models/usuario.model');
 const Rol = require('../models/rol.model');
 const Tarifa = require('../models/tarifa.model');
-const sequelize = require('../../config/database');
+const UsuarioRol = require('../models/usuarioRol.model');
+const { fn, col } = require('sequelize');
 
 const dashboardCtrl = {};
 
@@ -17,23 +18,26 @@ dashboardCtrl.getStats = async (req, res) => {
         const ingresosTotales = tarifasPagadas.reduce((sum, t) => sum + Number(t.precio), 0);
 
         const roles = await Rol.findAll({
-            include: [{
-                model: Usuario,
-                attributes: ['id'],
-                through: { attributes: [] }
-            }]
+            attributes: ['id', 'nombre'],
+            raw: true
         });
 
-        let admins = 0;
-        let entrenadores = 0;
-        let socios = 0;
-
-        roles.forEach(rol => {
-            const count = (rol.Usuarios || rol.usuarios || []).length;
-            if (rol.nombre === 'admin') admins = count;
-            if (rol.nombre === 'entrenador') entrenadores = count;
-            if (rol.nombre === 'socio') socios = count;
+        const cantidades = await UsuarioRol.findAll({
+            attributes: ['id_rol', [fn('COUNT', col('id_usuario')), 'total']],
+            group: ['id_rol'],
+            raw: true
         });
+
+        const porId = new Map(
+            cantidades.map(x => [Number(x.id_rol), Number(x.total)])
+        );
+        const porNombre = Object.fromEntries(
+            roles.map(r => [r.nombre, porId.get(r.id) || 0])
+        );
+
+        const admins = porNombre.admin || 0;
+        const entrenadores = porNombre.entrenador || 0;
+        const socios = porNombre.socio || 0;
 
         res.json({
             status: '1',

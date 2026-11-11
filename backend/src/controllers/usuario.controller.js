@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const { validationResult } = require('express-validator');
 const Usuario = require('./../../src/models/usuario.model');
 const UsuarioRol = require('./../../src/models/usuarioRol.model');
+const Rol = require('./../../src/models/rol.model');
 const usuarioCtrl = {};
 
 // Alta de nuevo usuario
@@ -144,17 +145,18 @@ usuarioCtrl.activeUsuario = async (req, res) => {
 // Obtener solo los usuarios que son Socios
 usuarioCtrl.getSocios = async (req, res) => {
     try {
-        const asignaciones = await UsuarioRol.findAll({ where: { id_rol: 3 } });
-        const idsSocios = asignaciones.map(a => a.id_usuario);
-        
         const socios = await Usuario.findAll({
-            where: { 
-                id: idsSocios,
-                estado: true 
-            },
-            attributes: { exclude: ['password_hash', 'createdAt', 'updatedAt'] }
+            where: { estado: true },
+            attributes: { exclude: ['password_hash', 'createdAt', 'updatedAt'] },
+            include: [{
+                model: Rol,
+                attributes: [],
+                where: { nombre: 'socio' },
+                through: { attributes: [] },
+                required: true
+            }]
         });
-        
+
         res.json({status: '1', msg: 'Socios obtenidos correctamente.', usuarios: socios});
     } catch (error) {
         console.error(error);
