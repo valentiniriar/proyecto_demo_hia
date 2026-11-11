@@ -22,7 +22,13 @@ Desde `infra/n8n/`: `docker compose up -d`. El puerto local está definido en `.
 - No generar ni compartir claves reales para la evidencia. Las integraciones todavía no conectadas quedan **pendientes** hasta SCRUM-76/79 y demás servicios.
 - Si en el futuro se habilitan webhooks accesibles desde Internet, exigir autenticación/validación y restringir la publicación mediante el proxy. **No se publican webhooks externos en SCRUM-75**.
 
-## Prueba de persistencia pendiente de ejecución
+## Prueba de persistencia realizada (11/11/2026)
+
+**Resultado:** se recreó el contenedor de n8n sin borrar el
+volumen persistente. Se comprobó que el usuario Owner y el
+workflow «Prueba persistencia SCRUM75» continuaron disponibles.
+
+### Procedimiento para repetir la prueba
 1. Crear el owner en la UI y, opcionalmente, un workflow de prueba llamado `SCRUM75-Persistencia`.
 2. Desde `infra/n8n/` ejecutar `docker compose restart n8n`, esperar que vuelva y comprobar que el usuario y el workflow siguen disponibles.
 3. Registrar `docker compose ps`, `docker port gymhub-n8n-scrum75 5678/tcp`, volumen `docker volume inspect gymhub-scrum75_n8n_data` y captura del editor.
