@@ -8,6 +8,7 @@
 #   Despliegue (BD sin puerto en el host, solo red interna):   docker compose --profile deploy up -d
 #   pgAdmin 4 (opcional, 127.0.0.1:${PGADMIN_PORT:-5050}):     docker compose --profile dev --profile tools up -d
 #   Adminer (opcional, 127.0.0.1:8080):                        docker compose --profile dev --profile adminer up -d
+#   Backups automáticos (SCRUM-37):                            docker compose --profile dev --profile backups up -d
 #
 # No levantar dev y deploy a la vez: comparten el volumen db_data.
 # Los scripts de ./database se ejecutan automaticamente la PRIMERA vez que se crea el volumen.
@@ -53,6 +54,36 @@ services:
           - db
       # La red interna no permite publicar puertos; esta red solo sirve para exponer 5433 al host.
       default: {}
+
+  # Servicio de backups automáticos (SCRUM-37)
+  # Genera dumps en formato custom (-F c) y JSON de estado para n8n
+  backup:
+    build:
+      context: ./database/backup
+    image: gymhub-backup:latest
+    container_name: demo_hia_backup
+    profiles: ["backups", "tools"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+      db-dev:
+        condition: service_healthy
+        required: false
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-demo_hia}
+      DB_USER: ${DB_USER:-demo_hia}
+      DB_PASS: ${DB_PASS:-demo_hia_pass}
+      BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 3 * * *}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      RUN_BACKUP_ON_STARTUP: ${RUN_BACKUP_ON_STARTUP:-true}
+    volumes:
+      - db_backups:/backups
+    networks:
+      - gymhub_db_net
 
   # Administrador web de la BD (pgAdmin 4 - SCRUM-34): docker compose --profile dev --profile tools up -d
   # Publicado estrictamente en 127.0.0.1 para acceso interno / localhost
@@ -110,3 +141,4 @@ networks:
 volumes:
   db_data:
   pgadmin_data:
+  db_backups:
