@@ -7,7 +7,7 @@
 - Usuario administrador de Grafana y contraseña en `infra/monitoring/.env` **ignorado por Git**. No capturar ni subir ese archivo.
 - Datasource Prometheus provisionado automáticamente desde YAML.
 - Conexión al PostgreSQL principal preexistente por `host.docker.internal` (Docker Desktop macOS) sin cambiar el contenedor o sus tablas.
-- Disponibilidad local consultada mediante blackbox en endpoints `http://host.docker.internal:3000/api/health` y `http://host.docker.internal:4200/api/health`.
+- Disponibilidad local consultada mediante blackbox en endpoints `http://host.docker.internal:3000/api/health` y `http://host.docker.internal:8081/api/health`.
 
 ## Precaución sobre métricas de Docker Desktop macOS
 node-exporter y cAdvisor dentro de Docker Desktop observan principalmente la VM Linux / contenedores de Docker. Sus cifras **NO son medición completa del hardware macOS**. cAdvisor puede tener limitaciones de métricas/mounts; se debe verificar el target de Prometheus antes de declararlo operativo.
@@ -28,7 +28,7 @@ El script da las URL y muestra el resumen de targets. Verificar también `docker
 **No usar** `docker compose down -v` ni borrar los volúmenes del stack. En caso de reinicio: `cd infra/monitoring && docker compose up -d` (desde la raíz del repositorio; así se carga el `.env` local de ese directorio).
 
 ## Estado de prueba
-Instalación y comprobación en el Mac del integrante: **pendientes** al generar esta configuración. Se actualizará después de confirmar resultados reales.
+Instalación y pruebas realizadas el 12/11/2026: Grafana conectada a Prometheus, PostgreSQL con pg_up=1, sondas locales con probe_success=1 y cAdvisor v0.60.6 con métricas individuales. Pendiente completar réplica PostgreSQL y URL pública.
 
 
 ## Actualización de cAdvisor (12/11/2026)
