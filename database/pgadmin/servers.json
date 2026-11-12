@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "GymHub PostgreSQL (db)",
+      "Group": "Servers",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "demo_hia",
+      "Username": "demo_hia",
+      "SSLMode": "prefer"
+    }
+  }
+}
