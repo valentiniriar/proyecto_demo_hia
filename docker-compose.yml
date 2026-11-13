@@ -6,6 +6,7 @@
 # Perfiles:
 #   Desarrollo (publica la BD en localhost:${DB_PORT:-5433}):  docker compose --profile dev up -d
 #   Despliegue (BD sin puerto en el host, solo red interna):   docker compose --profile deploy up -d
+#   Clúster Replicado (SCRUM-45):                             docker compose --profile dev --profile cluster up -d
 #   pgAdmin 4 (opcional, 127.0.0.1:${PGADMIN_PORT:-5050}):     docker compose --profile dev --profile tools up -d
 #   Adminer (opcional, 127.0.0.1:8080):                        docker compose --profile dev --profile adminer up -d
 #   Backups automáticos (SCRUM-37):                            docker compose --profile dev --profile backups up -d
@@ -21,10 +22,15 @@ x-db-base: &db-base
     POSTGRES_DB: ${DB_NAME:?DB_NAME no definida en .env}
     POSTGRES_USER: ${DB_USER:?DB_USER no definida en .env}
     POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS no definida en .env}
+    POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER:-replicator}
+    POSTGRES_REPLICA_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-replicator_pass}
   volumes:
     - db_data:/var/lib/postgresql/data
+    - ./database/config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
     - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    - ./database/replication/setup-primary.sh:/docker-entrypoint-initdb.d/03_setup_primary.sh:ro
+  command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
   healthcheck:
     test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
     interval: 5s
@@ -54,6 +60,41 @@ services:
           - db
       # La red interna no permite publicar puertos; esta red solo sirve para exponer 5433 al host.
       default: {}
+
+  # NODO RÉPLICA STANDBY (Solo Lectura, Streaming físico - SCRUM-45)
+  db-replica:
+    image: postgres:16-alpine
+    container_name: demo_hia_db_replica
+    profiles: ["cluster"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+      db-dev:
+        condition: service_healthy
+        required: false
+    environment:
+      PRIMARY_HOST: db
+      PRIMARY_PORT: 5432
+      POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER:-replicator}
+      POSTGRES_REPLICA_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-replicator_pass}
+      REPLICATION_SLOT: standby_slot_1
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${DB_REPLICA_PORT:-5434}:5432"
+    volumes:
+      - db_replica_data:/var/lib/postgresql/data
+      - ./database/replication/entrypoint-replica.sh:/scripts/entrypoint-replica.sh:ro
+    entrypoint: ["/scripts/entrypoint-replica.sh"]
+    networks:
+      - gymhub_db_net
+      - default
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_REPLICA_USER} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # Servicio de backups automáticos (SCRUM-37)
   # Genera dumps en formato custom (-F c) y JSON de estado para n8n
@@ -140,5 +181,6 @@ networks:
 
 volumes:
   db_data:
+  db_replica_data:
   pgadmin_data:
   db_backups:
