@@ -55,6 +55,8 @@ export class PagoExitosoComponentComponent implements OnInit {
           transaccion: `Pago Mercado Pago - Referencia: ${this.paymentId}`,
           monto: montoPago,
           activo: true,
+          // SCRUM-81: el backend verifica este pago contra MercadoPago antes de registrarlo.
+          mp_payment_id: this.paymentId,
           tarifa: {
             id: tarifaId
           }

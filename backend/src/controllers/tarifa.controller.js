@@ -41,6 +41,10 @@ tarifaCtrl.getTarifas = async (req, res) => {
  tarifaCtrl.getCuotasImpagasPorUsuario = async (req, res) => {
     try {
         const { usuarioId } = req.params;
+        // SCRUM-81: un id no numérico (ej. "1 OR 1=1") devolvía 500; ahora 400.
+        if (!/^\d+$/.test(usuarioId)) {
+            return res.status(400).json({ status: '0', msg: 'El id de usuario debe ser numérico.' });
+        }
 
         const cuotasImpagas = await Tarifa.findAll({
             include: [

@@ -1,0 +1,15 @@
+{
+  "summary": "Un socio puede marcar su cuota como pagada sin pagar en MercadoPago (pago no verificado del lado servidor)",
+  "category": "Seguridad",
+  "severity": "crash",
+  "priority": "immediate",
+  "description": "El backend confía en lo que envía el navegador al volver de MercadoPago: no consulta el pago real. Además el precio del link de pago (unit_price) lo define el cliente, así que se podía pagar $1 una cuota de $25000. Un socio marcó su cuota como paga enviando una \"transaccion\" inventada.\n\nDetectado en las pruebas de seguridad controladas de SCRUM-81 (entorno local de prueba). Script: docs/evidencias/SCRUM-81/pruebas-seguridad.sh",
+  "steps_to_reproduce": "1. Iniciar sesión como un socio con una cuota impaga.\n2. POST /api/pagos {\"tarifa\":{\"id\":<su cuota>},\"monto\":\"1\",\"transaccion\":\"SIN-PAGAR\"}\n3. Respuesta: 200 y la cuota queda pagada sin pago real.",
+  "additional_information": "Jira: SCRUM-81 · Matriz de amenazas: A11/A12 (SCRUM-63) · OWASP API6:2023 Unrestricted Access to Sensitive Business Flows",
+  "tags": [
+    "SCRUM-81",
+    "seguridad",
+    "pagos",
+    "mercadopago"
+  ]
+}
