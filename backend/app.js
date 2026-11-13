@@ -2,14 +2,20 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const express = require('express');
-const cors = require('cors');
 const sequelize = require('./config/database');
+const security = require('./config/security');
 
 const app = express();
 
-// Middlewares
-app.use(express.json());
-app.use(cors({ origin: ['http://localhost:4200', 'https://localhost:4200'] }));
+// Seguridad (SCRUM-65): IP real detrás de Cloudflare/Nginx, cabeceras HTTP seguras,
+// CORS por entorno, límites de solicitudes y de tamaño del body.
+app.set('trust proxy', security.trustProxy());
+app.disable('x-powered-by');
+app.use(security.helmetMiddleware());
+app.use(security.corsMiddleware());
+app.use('/api', security.globalRateLimit());
+app.use('/api/auth', security.authRateLimit());
+app.use(express.json({ limit: security.bodyLimit() }));
 
 // Salud del servicio: lo usan el HEALTHCHECK de Docker, el deploy del CI/CD y el monitoreo.
 // 200 si la API responde y la base acepta conexiones; 503 si la base no está disponible.
@@ -49,5 +55,17 @@ app.use('/api/nutricion', require('./src/routes/nutricion.route.js'));
 
 // Ruta hacia la documentacion de swagger
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
+
+// Errores del parser JSON: responder en el mismo formato que el resto de la API
+// en lugar de la página HTML por defecto de Express.
+app.use((err, req, res, next) => {
+    if (err && err.type === 'entity.too.large') {
+        return res.status(413).json({ status: '0', msg: 'El cuerpo de la solicitud supera el tamaño máximo permitido.' });
+    }
+    if (err && err.type === 'entity.parse.failed') {
+        return res.status(400).json({ status: '0', msg: 'JSON inválido.' });
+    }
+    return next(err);
+});
 
 module.exports = app;
