@@ -1,7 +1,7 @@
 {
   "name": "proybackendgrupog06",
   "version": "1.0.0",
-  "description": "Trabajo Práctico Final - Grupo G06 - Programación y Servicios Web 2026",
+  "description": "Trabajo Pr\u00e1ctico Final - Grupo G06 - Programaci\u00f3n y Servicios Web 2026",
   "homepage": "https://github.com/valentiniriar/proyecto_demo_hia#readme",
   "bugs": {
     "url": "https://github.com/valentiniriar/proyecto_demo_hia/issues"
@@ -16,8 +16,10 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon index.js"
+    "test": "node --test test/smoke.test.js",
+    "dev": "nodemon index.js",
+    "lint": "eslint .",
+    "test:ci": "node --test test/smoke.test.js"
   },
   "dependencies": {
     "axios": "^1.18.1",
@@ -37,7 +39,11 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
     "nodemon": "^3.1.14",
+    "supertest": "^7.3.2",
     "swagger-autogen": "^2.23.7"
   }
 }

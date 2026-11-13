@@ -6,7 +6,8 @@
 # Perfiles:
 #   Desarrollo (publica la BD en localhost:${DB_PORT:-5433}):  docker compose --profile dev up -d
 #   Despliegue (BD sin puerto en el host, solo red interna):   docker compose --profile deploy up -d
-#   Adminer (opcional, agregar al perfil elegido):             docker compose --profile dev --profile tools up -d
+#   pgAdmin 4 (opcional, 127.0.0.1:${PGADMIN_PORT:-5050}):     docker compose --profile dev --profile tools up -d
+#   Adminer (opcional, 127.0.0.1:8080):                        docker compose --profile dev --profile adminer up -d
 #
 # No levantar dev y deploy a la vez: comparten el volumen db_data.
 # Los scripts de ./database se ejecutan automaticamente la PRIMERA vez que se crea el volumen.
@@ -53,11 +54,39 @@ services:
       # La red interna no permite publicar puertos; esta red solo sirve para exponer 5433 al host.
       default: {}
 
-  # Administrador web de la BD (opcional).
+  # Administrador web de la BD (pgAdmin 4 - SCRUM-34): docker compose --profile dev --profile tools up -d
+  # Publicado estrictamente en 127.0.0.1 para acceso interno / localhost
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: demo_hia_pgadmin
+    profiles: ["tools"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+      db-dev:
+        condition: service_healthy
+        required: false
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?PGADMIN_DEFAULT_EMAIL no definida en .env}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?PGADMIN_DEFAULT_PASSWORD no definida en .env}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./database/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    networks:
+      # gymhub_db_net para llegar al host "db"; default para poder publicar el puerto.
+      - gymhub_db_net
+      - default
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+
+  # Administrador web alternativo ligero (Adminer): docker compose --profile adminer up -d
   adminer:
     image: adminer:4
     container_name: demo_hia_adminer
-    profiles: ["tools"]
+    profiles: ["adminer"]
     restart: unless-stopped
     depends_on:
       db:
@@ -70,7 +99,7 @@ services:
       - gymhub_db_net
       - default
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
 
 networks:
   gymhub_db_net:
@@ -80,3 +109,4 @@ networks:
 
 volumes:
   db_data:
+  pgadmin_data:

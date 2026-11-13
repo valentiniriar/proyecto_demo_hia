@@ -26,7 +26,7 @@ docker compose --profile dev up -d   # desarrollo: publica la BD en localhost:54
 
 Crea un PostgreSQL en `localhost:5433` y carga automáticamente [`database/01_schema.sql`](database/01_schema.sql) (tablas) y [`database/02_seed.sql`](database/02_seed.sql) (roles y datos demo).
 
-`DB_NAME`, `DB_USER` y `DB_PASS` son **obligatorias** en `.env` (no versionado): si falta alguna, `docker compose` falla con un mensaje y no arranca.
+`DB_NAME`, `DB_USER`, `DB_PASS`, `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` son **obligatorias** en `.env` (no versionado): si falta alguna, `docker compose` falla con un mensaje y no arranca. Si tu `.env` es anterior, copiá las variables `PGADMIN_*` desde `.env.example`.
 
 Perfiles disponibles en [`docker-compose.yml`](docker-compose.yml):
 
@@ -34,12 +34,14 @@ Perfiles disponibles en [`docker-compose.yml`](docker-compose.yml):
 |---|---|---|---|
 | `dev` | `docker compose --profile dev up -d` | `db-dev` | `localhost:${DB_PORT:-5433}` |
 | `deploy` | `docker compose --profile deploy up -d` | `db` | Ninguno: solo se accede por la red interna `gymhub_db_net` (host `db`) |
-| `tools` | se agrega al perfil elegido, p. ej. `docker compose --profile dev --profile tools up -d` | `adminer` | `localhost:8080` |
+| `tools` | se agrega al perfil elegido, p. ej. `docker compose --profile dev --profile tools up -d` | `pgadmin` | `127.0.0.1:${PGADMIN_PORT:-5050}` |
+| `adminer` | se agrega al perfil elegido, p. ej. `docker compose --profile dev --profile adminer up -d` | `adminer` | `127.0.0.1:8080` |
 
 - No levantes `dev` y `deploy` a la vez: comparten el volumen `db_data`.
 - Estado y healthcheck: `docker compose --profile dev ps` tiene que mostrar `healthy`.
 - Reiniciar desde cero (borra los datos): `docker compose --profile dev down -v && docker compose --profile dev up -d`
-- Visor web opcional (Adminer en http://localhost:8080): `docker compose --profile dev --profile tools up -d`. Espera a que la BD esté `healthy`.
+- pgAdmin 4 (http://127.0.0.1:5050): `docker compose --profile dev --profile tools up -d`. Espera a que la BD esté `healthy`. Se entra con `PGADMIN_DEFAULT_EMAIL` / `PGADMIN_DEFAULT_PASSWORD` del `.env`, y el servidor "GymHub PostgreSQL (db)" ya viene cargado (la contraseña es `DB_PASS`).
+- Adminer, alternativa liviana (http://127.0.0.1:8080): `docker compose --profile dev --profile adminer up -d`
   (sistema: PostgreSQL · servidor: `db` · usuario/clave/base: los de tu `.env`)
 
 ### 2. Backend
