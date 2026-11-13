@@ -1,0 +1,3 @@
+# Claves generadas por setup.sh y credenciales iniciales: nunca al repositorio.
+.env
+credenciales.local*.json
