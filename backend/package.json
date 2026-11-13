@@ -1,7 +1,7 @@
 {
   "name": "proybackendgrupog06",
   "version": "1.0.0",
-  "description": "Trabajo Pr\u00e1ctico Final - Grupo G06 - Programaci\u00f3n y Servicios Web 2026",
+  "description": "Trabajo Práctico Final - Grupo G06 - Programación y Servicios Web 2026",
   "homepage": "https://github.com/valentiniriar/proyecto_demo_hia#readme",
   "bugs": {
     "url": "https://github.com/valentiniriar/proyecto_demo_hia/issues"
@@ -16,10 +16,10 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/smoke.test.js",
+    "test": "node --test test/smoke.test.js test/security.test.js test/ai-security.test.js",
     "dev": "nodemon index.js",
     "lint": "eslint .",
-    "test:ci": "node --test test/smoke.test.js",
+    "test:ci": "node --test test/smoke.test.js test/security.test.js test/ai-security.test.js",
     "test:mp": "node scripts/test-mp.js"
   },
   "dependencies": {
@@ -31,6 +31,7 @@
     "express-rate-limit": "^8.7.4",
     "express-validator": "^7.3.2",
     "google-auth-library": "^10.9.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^10.5.0",
     "pg": "^8.22.0",
