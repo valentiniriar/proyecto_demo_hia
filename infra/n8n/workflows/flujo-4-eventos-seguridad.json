@@ -1,0 +1,108 @@
+{
+  "name": "Flujo 4 - Eventos de seguridad → clasificación → incidencia en Mantis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gymhub-seguridad",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook eventos de seguridad",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "id": "f4-webhook",
+      "webhookId": "5b9f7c1e-84a1-4c55-9a2e-6f3f2d9b8a84",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gymhubEventosSeg",
+          "name": "GymHub - secreto de eventos de seguridad"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clasifica el evento enviado por el backend y decide si abrir una incidencia.\n// Estado persistente del flujo (contadores, IPs conocidas, deduplicación) en staticData.\nconst ev = $input.first().json.body || {};\nconst st = $getWorkflowStaticData('global');\nst.fallidos = st.fallidos || {};\nst.ipsAdmin = st.ipsAdmin || {};\nst.abiertas = st.abiertas || {};\n\nconst ahora = Date.now();\nconst VENTANA_MS = 5 * 60 * 1000;   // fuerza bruta: ventana de 5 minutos\nconst UMBRAL = 10;                  // logins fallidos por IP en la ventana\nconst DEDUP_MS = 60 * 60 * 1000;    // no repetir la misma incidencia durante 1 hora\nconst ip = String(ev.ip || 'desconocida');\nlet inc = null;\n\nif (ev.tipo === 'login_fallido') {\n  const arr = (st.fallidos[ip] || []).filter((t) => ahora - t < VENTANA_MS);\n  arr.push(ahora);\n  st.fallidos[ip] = arr;\n  if (arr.length >= UMBRAL) {\n    inc = { clave: `fuerza-bruta:${ip}`, categoria: 'Seguridad', severidad: 'major', prioridad: 'high',\n      resumen: `Posible fuerza bruta: ${arr.length} logins fallidos en 5 min desde ${ip}`,\n      clasificacion: 'Fuerza bruta / credential stuffing' };\n  }\n} else if (ev.tipo === 'rate_limit') {\n  inc = { clave: `rate-limit:${ev.limite}:${ip}`, categoria: 'Seguridad', severidad: 'minor', prioridad: 'normal',\n    resumen: `Rate limit (${ev.limite || 'api'}) activado para ${ip}`,\n    clasificacion: ev.limite === 'auth' ? 'Fuerza bruta frenada por rate limit' : 'Abuso de API / scraping' };\n} else if (ev.tipo === 'login_admin') {\n  const uid = String(ev.usuario_id);\n  const conocidas = st.ipsAdmin[uid] || [];\n  if (!conocidas.includes(ip)) {\n    // El primer login de cada admin solo registra la IP de referencia.\n    if (conocidas.length > 0) {\n      inc = { clave: `admin-ip-nueva:${uid}:${ip}`, categoria: 'Seguridad', severidad: 'major', prioridad: 'urgent',\n        resumen: `Login de administrador (${ev.email}) desde IP nueva ${ip}`,\n        clasificacion: 'Posible robo de credenciales de admin' };\n    }\n    st.ipsAdmin[uid] = [...conocidas, ip].slice(-20);\n  }\n}\n\n// Limpieza de contadores viejos para que el estado no crezca sin límite.\nfor (const k of Object.keys(st.fallidos)) {\n  st.fallidos[k] = st.fallidos[k].filter((t) => ahora - t < VENTANA_MS);\n  if (!st.fallidos[k].length) delete st.fallidos[k];\n}\nfor (const k of Object.keys(st.abiertas)) if (ahora - st.abiertas[k] > DEDUP_MS) delete st.abiertas[k];\n\nlet motivo = inc ? 'nueva incidencia' : 'solo registro';\nif (inc && st.abiertas[inc.clave]) { motivo = 'duplicada (ya informada en la última hora)'; inc = null; }\nif (inc) st.abiertas[inc.clave] = ahora;\n\nreturn [{ json: { evento: ev, crear_incidencia: Boolean(inc), incidencia: inc, motivo } }];"
+      },
+      "name": "Clasificar y deduplicar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "f4-clasificar"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.crear_incidencia }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "¿Abrir incidencia?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "f4-if"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8990/api/rest/issues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  project: { name: 'GymHub' },\n  category: { name: $json.incidencia.categoria },\n  severity: { name: $json.incidencia.severidad },\n  priority: { name: $json.incidencia.prioridad },\n  reproducibility: { name: 'have not tried' },\n  summary: '[n8n] ' + $json.incidencia.resumen,\n  description: 'Evento de seguridad detectado automáticamente por el flujo 4 de n8n (SCRUM-84).\\n\\nClasificación: ' + $json.incidencia.clasificacion + '\\nTipo de evento: ' + $json.evento.tipo + '\\nIP: ' + $json.evento.ip + '\\nRuta: ' + $json.evento.metodo + ' ' + $json.evento.ruta + '\\nFecha (UTC): ' + $json.evento.fecha + '\\nUsuario/email: ' + ($json.evento.email || '-') + '\\nUser-Agent: ' + ($json.evento.user_agent || '-'),\n  additional_information: 'Seguir el procedimiento de respuesta a incidentes: docs/SCRUM-84-respuesta-incidentes.md',\n  tags: [{ name: 'SCRUM-84' }, { name: 'evento-seguridad' }]\n}) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Crear incidencia en Mantis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 220],
+      "id": "f4-mantis",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gymhubMantisBot",
+          "name": "Mantis - token n8n-bot"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "Solo registrar (sin incidencia)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "id": "f4-noop"
+    }
+  ],
+  "connections": {
+    "Webhook eventos de seguridad": {
+      "main": [[{ "node": "Clasificar y deduplicar", "type": "main", "index": 0 }]]
+    },
+    "Clasificar y deduplicar": {
+      "main": [[{ "node": "¿Abrir incidencia?", "type": "main", "index": 0 }]]
+    },
+    "¿Abrir incidencia?": {
+      "main": [
+        [{ "node": "Crear incidencia en Mantis", "type": "main", "index": 0 }],
+        [{ "node": "Solo registrar (sin incidencia)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  },
+  "active": false,
+  "id": "gymhubFlujo4Seguridad",
+  "tags": []
+}

@@ -33,8 +33,8 @@
 | A08 | Pipeline / imágenes | **Cadena de suministro:** paquete npm secuestrado, Action de GitHub comprometida, imagen base adulterada | 2 | 3 | 🔴 6 | `npm ci` con lockfile e integridad; Actions fijadas por SHA, `permissions: {}`, `persist-credentials: false` (SCRUM-58); imágenes oficiales fijadas por digest (cloudflared, gitleaks); escaneo de imágenes con Trivy (SCRUM-80) | SHA/permisos ✔; Trivy pendiente | 🟡 4 |
 | A09 | BD | **Inyección SQL** en login, búsquedas o filtros | 1 | 3 | 🟡 3 | Sequelize con consultas parametrizadas (sin `sequelize.query` con strings concatenados); `express-validator` en usuarios; prueba de SQLi (SCRUM-81) | ✔ | 🟢 1 |
 | A10 | Datos de socios | **IDOR / BOLA:** un socio lee cuotas o rutinas de otro (`/api/tarifas/mis-tarifas`, `/api/rutinas/mis-rutinas`) o datos de usuarios (`/api/usuarios/:dni`) | 2 | 2 | 🟡 4 | `mis-*` filtran por `req.usuario.id` del JWT, no por parámetro; `/usuarios/:dni` solo `admin` (`verificarRol`); tests de 403 por rol (SCRUM-32); prueba de escalamiento (SCRUM-81) | ✔ | 🟢 2 |
-| A11 | Pagos y cuotas | **Fraude en pagos (lógica de negocio):** `POST /api/pagos` admite rol `socio` y marca como pagada **cualquier** `tarifaId` recibida, sin verificar que la cuota sea suya ni que MercadoPago haya aprobado el pago | 3 | 3 | 🔴 9 | Verificar propiedad de la cuota y el estado `approved` del pago contra la API de MercadoPago antes de marcarla pagada (**SCRUM-81**, hallazgo de esta matriz) | Pendiente → SCRUM-81 | 🔴 9 |
-| A12 | Pagos | **Abuso de la integración MercadoPago:** robo del `ACCESS_TOKEN` o retorno (`back_urls`) falsificado por el usuario | 2 | 3 | 🔴 6 | Token solo en `.env`/Environment (SCRUM-58); tokens de prueba en la demo; validar el pago del lado servidor (SCRUM-81) | Parcial | 🟡 4 |
+| A11 | Pagos y cuotas | **Fraude en pagos (lógica de negocio):** `POST /api/pagos` admite rol `socio` y marca como pagada **cualquier** `tarifaId` recibida, sin verificar que la cuota sea suya ni que MercadoPago haya aprobado el pago | 3 | 3 | 🔴 9 | Verificar propiedad de la cuota y el estado `approved` del pago contra la API de MercadoPago antes de marcarla pagada (**SCRUM-81**, hallazgo de esta matriz) | ✔ Corregido en SCRUM-81 (PR #40): 403 si la cuota es ajena; pago verificado contra MercadoPago (estado, referencia y monto); 11 tests de regresión | 🟢 2 |
+| A12 | Pagos | **Abuso de la integración MercadoPago:** robo del `ACCESS_TOKEN` o retorno (`back_urls`) falsificado por el usuario | 2 | 3 | 🔴 6 | Token solo en `.env`/Environment (SCRUM-58); tokens de prueba en la demo; validar el pago del lado servidor (SCRUM-81 ✔) | Parcial (falta webhook de notificaciones de MP) | 🟡 3 |
 | A13 | Automatizaciones | **Abuso de webhooks de n8n** (disparar flujos o crear incidencias falsas en Mantis) | 2 | 2 | 🟡 4 | n8n con autenticación y sin publicar a Internet (SCRUM-75, SCRUM-61); token de API de Mantis con permisos mínimos (SCRUM-70); pruebas de fallo de los flujos (SCRUM-79) | Parcial | 🟡 3 |
 | A14 | IA (Groq) | **Prompt injection / abuso de cuota** en `POST /api/ai/generar-rutina` | 3 | 2 | 🔴 6 | Validación y filtro de instrucciones sospechosas, rate limit de 10 req/15 min por usuario (SCRUM-82) | ✔ | 🟡 3 |
 | A15 | Servicios internos | **Exposición de paneles internos** (PostgreSQL, pgAdmin, Grafana, Prometheus, n8n, Mantis) a Internet o a la LAN | 2 | 3 | 🔴 6 | Solo el Nginx del frontend está en el túnel (SCRUM-60); puertos de dev ligados a `127.0.0.1`; matriz de acceso + firewall + nmap externo (SCRUM-61) | Túnel ✔; firewall/nmap en SCRUM-61 | 🟡 3 |
@@ -47,13 +47,13 @@
 | | Alto 🔴 | Medio 🟡 | Bajo 🟢 |
 |---|---|---|---|
 | Riesgo inherente | 13 | 5 | 0 |
-| Riesgo residual | 2 | 11 | 5 |
+| Riesgo residual | 1 | 11 | 6 |
 
 ## 3. Riesgos residuales altos: tratamiento
 
 | # | Por qué sigue alto | Acción y ticket | Responsable |
 |---|---|---|---|
-| A11 | Fraude real y explotable hoy: un socio autenticado puede marcar cuotas como pagas sin pagar. | Corregir en **SCRUM-81**: chequeo de propiedad de la cuota + validación del pago contra MercadoPago + test de regresión. | Valentín Iriarte |
+| ~~A11~~ | ✔ **Corregido** en SCRUM-81 (PR #40, Mantis #1 y #2). Residual 🟢 2. | — | Valentín Iriarte |
 | A04 | Sin segundo factor, una contraseña de admin filtrada alcanza para todo. | **SCRUM-83** (sesión) y **SCRUM-61** (Cloudflare Access por email para funciones de admin). Mientras tanto: contraseña larga y única para admin y cambiar la del usuario demo antes de publicar. | Francisco Paredes / Valentín Iriarte |
 
 ## 4. Relación amenaza → control → ticket
@@ -76,7 +76,7 @@ La matriz se actualiza:
 - después de las pruebas de SCRUM-81;
 - ante cualquier incidente registrado en Mantis.
 
-El riesgo residual de A11 baja a 🟢 cuando se mergee la corrección de SCRUM-81.
+**Actualización 13/11/2026:** A11 corregido y mergeado (SCRUM-81, PR #40) → residual 🟢 2. A12 baja a 🟡 3 por la validación del pago del lado servidor.
 
 ## 6. Criterios de aceptación
 

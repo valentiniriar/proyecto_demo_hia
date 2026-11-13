@@ -33,6 +33,10 @@ services:
       DB_USER: ${DB_USER:-demo_hia}
       DB_PASS: ${DB_PASS:-demo_hia_pass}
       JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_123456789}
+      # SCRUM-84: eventos de seguridad hacia n8n (opcional; vacío = desactivado).
+      # Ej.: http://host.docker.internal:5679/webhook/gymhub-seguridad
+      SECURITY_EVENTS_WEBHOOK_URL: ${SECURITY_EVENTS_WEBHOOK_URL:-}
+      SECURITY_EVENTS_WEBHOOK_SECRET: ${SECURITY_EVENTS_WEBHOOK_SECRET:-}
 
   db:
     ports:

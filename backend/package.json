@@ -16,10 +16,10 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/smoke.test.js test/security.test.js test/ai-security.test.js test/pagos-seguridad.test.js",
+    "test": "node --test test/smoke.test.js test/security.test.js test/ai-security.test.js test/pagos-seguridad.test.js test/security-events.test.js",
     "dev": "nodemon index.js",
     "lint": "eslint .",
-    "test:ci": "node --test test/smoke.test.js test/security.test.js test/ai-security.test.js test/pagos-seguridad.test.js",
+    "test:ci": "node --test test/smoke.test.js test/security.test.js test/ai-security.test.js test/pagos-seguridad.test.js test/security-events.test.js",
     "test:mp": "node scripts/test-mp.js"
   },
   "dependencies": {
