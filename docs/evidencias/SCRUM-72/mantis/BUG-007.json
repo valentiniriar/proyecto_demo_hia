@@ -1,0 +1,14 @@
+{
+  "summary": "BUG-007: Conflicto de puerto 5432 con instancias locales de PostgreSQL",
+  "category": "Infraestructura",
+  "severity": "minor",
+  "priority": "normal",
+  "description": "El contenedor de la BD publicaba 5432, que ya usaba un PostgreSQL instalado en la PC (falla de autenticación contra la instancia equivocada).\n\nRegistrada en el relevamiento de incidencias de SCRUM-71 (docs/SCRUM-71-incidencias-mantis.md). Reportó: Valentín Lozano. Responsable: Valentín Lozano.",
+  "steps_to_reproduce": "docker compose up con un PostgreSQL local corriendo en 5432",
+  "additional_information": "Jira: SCRUM-24 · PR: #13",
+  "tags": [
+    "SCRUM-24",
+    "SCRUM-71",
+    "SCRUM-72"
+  ]
+}

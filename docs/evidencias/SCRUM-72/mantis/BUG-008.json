@@ -1,0 +1,14 @@
+{
+  "summary": "BUG-008: JWT guardado en localStorage del navegador, expuesto ante XSS",
+  "category": "Seguridad",
+  "severity": "major",
+  "priority": "high",
+  "description": "El frontend guarda el token (8 h, sin revocación) en localStorage: cualquier XSS podría robarlo.\n\nRegistrada en el relevamiento de incidencias de SCRUM-71 (docs/SCRUM-71-incidencias-mantis.md). Reportó: Francisco Paredes. Responsable: Francisco Paredes.",
+  "steps_to_reproduce": "DevTools → Application → Local Storage → token",
+  "additional_information": "Jira: SCRUM-83 · PR: —",
+  "tags": [
+    "SCRUM-83",
+    "SCRUM-71",
+    "SCRUM-72"
+  ]
+}

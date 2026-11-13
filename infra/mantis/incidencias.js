@@ -5,7 +5,7 @@
 //
 //   node infra/mantis/incidencias.js crear  archivo.json           # crea una incidencia, imprime su id
 //   node infra/mantis/incidencias.js asignar <id> <usuario> ["nota"]
-//   node infra/mantis/incidencias.js resolver <id> "nota con PR y verificación"
+//   node infra/mantis/incidencias.js resolver <id> "nota con PR y verificación" [resolución]
 //   node infra/mantis/incidencias.js cerrar <id> "nota con evidencia"
 //   node infra/mantis/incidencias.js nota <id> "texto"
 //   node infra/mantis/incidencias.js ver <id>                       # estado + historial
@@ -62,7 +62,8 @@ async function main() {
             break;
         }
         case 'resolver': {
-            await api('PATCH', `/issues/${a}`, { status: { name: 'resolved' }, resolution: { name: 'fixed' } });
+            // resolución opcional: fixed (default) | "no change required" | "won't fix" | duplicate ...
+            await api('PATCH', `/issues/${a}`, { status: { name: 'resolved' }, resolution: { name: c || 'fixed' } });
             await nota(a, b);
             console.log(`#${a} resuelta`);
             break;
@@ -77,9 +78,10 @@ async function main() {
         case 'ver': {
             const { issues: [i] } = await api('GET', `/issues/${a}`);
             console.log(`#${i.id} [${i.status.label}] ${i.summary} · ${i.category.name} · severidad ${i.severity.label} · prioridad ${i.priority.label} · responsable ${i.handler ? i.handler.name : '-'}`);
+            const valor = (v) => (v && typeof v === 'object' ? (v.label || v.name || '(nadie)') : v);
             for (const h of i.history || []) {
                 const f = h.field ? h.field.label : h.type.name;
-                console.log(`  ${h.created_at.slice(0, 16).replace('T', ' ')} ${h.user.name}: ${f}${h.old_value ? ' ' + (h.old_value.label || h.old_value.name || h.old_value) : ''}${h.new_value ? ' → ' + (h.new_value.label || h.new_value.name || h.new_value) : ''}`);
+                console.log(`  ${h.created_at.slice(0, 16).replace('T', ' ')} ${h.user.name}: ${f}${h.old_value ? ' ' + valor(h.old_value) : ''}${h.new_value ? ' → ' + valor(h.new_value) : ''}`);
             }
             break;
         }
