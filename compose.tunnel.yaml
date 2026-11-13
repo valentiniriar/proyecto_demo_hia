@@ -18,6 +18,9 @@ x-cloudflared: &cloudflared
     - frontend
   networks:
     - frontend_net
+  # Métricas de cloudflared para Prometheus (SCRUM-85), solo en localhost.
+  ports:
+    - "127.0.0.1:${CLOUDFLARED_METRICS_PORT:-2000}:2000"
   # Solo necesita salir a Internet; corre sin privilegios y con el sistema de archivos de solo lectura.
   read_only: true
   security_opt:

@@ -77,3 +77,62 @@ groups:
         annotations:
           summary: 'Muchas conexiones simultáneas a PostgreSQL'
           description: 'Más de 80 conexiones durante 5 minutos. Umbral inicial para laboratorio, ajustar según max_connections.'
+
+  # SCRUM-85: publicación en Internet (URL pública + túnel de Cloudflare).
+  - name: gymhub-publicacion
+    interval: 30s
+    rules:
+      - alert: GymHubUrlPublicaCaida
+        expr: probe_success{job="blackbox-publico"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: publicacion
+        annotations:
+          summary: 'La URL pública de GymHub no responde'
+          description: '{{ $labels.instance }} falla desde hace 2 minutos (HTTPS, certificado o /api/health). Seguir el playbook de DDoS/caída de SCRUM-84 y el plan B de SCRUM-85.'
+      - alert: GymHubUrlPublicaLenta
+        expr: probe_duration_seconds{job="blackbox-publico"} > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: publicacion
+        annotations:
+          summary: 'La URL pública responde lento'
+          description: 'La sonda tarda más de 3 s durante 5 minutos ({{ $labels.instance }}).'
+      - alert: GymHubCertificadoPorVencer
+        expr: (probe_ssl_earliest_cert_expiry{job="blackbox-publico"} - time()) / 86400 < 7
+        for: 10m
+        labels:
+          severity: warning
+          component: publicacion
+        annotations:
+          summary: 'El certificado HTTPS público vence en menos de 7 días'
+          description: 'Revisar el certificado gestionado por Cloudflare para {{ $labels.instance }}.'
+      - alert: GymHubTunelCaido
+        expr: up{job="cloudflared"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: publicacion
+        annotations:
+          summary: 'El contenedor de cloudflared no responde'
+          description: 'Prometheus no puede leer las métricas del túnel desde hace 2 minutos.'
+      - alert: GymHubTunelSinConexiones
+        expr: cloudflared_tunnel_ha_connections < 1
+        for: 2m
+        labels:
+          severity: critical
+          component: publicacion
+        annotations:
+          summary: 'El túnel no tiene conexiones activas con Cloudflare'
+          description: 'cloudflared está vivo pero sin conexiones al edge (corte de Internet de la PC o de Cloudflare).'
+      - alert: GymHubTunelErroresOrigen
+        expr: increase(cloudflared_tunnel_request_errors[5m]) > 5
+        for: 0m
+        labels:
+          severity: warning
+          component: publicacion
+        annotations:
+          summary: 'El túnel registra errores al llegar al origen (Nginx)'
+          description: 'Más de 5 errores hacia el frontend en 5 minutos: revisar que gymhub_frontend esté arriba.'
