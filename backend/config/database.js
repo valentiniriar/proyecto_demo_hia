@@ -12,8 +12,10 @@ const sequelize = new Sequelize(
     }
 );
 
-sequelize.authenticate()
-    .then(() => console.log('La base de datos está conectada a PostgreSQL'))
-    .catch(err => console.error('Error al conectar a PostgreSQL:', err));
+if (process.env.NODE_ENV !== 'test') {
+    sequelize.authenticate()
+        .then(() => console.log('La base de datos está conectada a PostgreSQL'))
+        .catch(err => console.error('Error al conectar a PostgreSQL:', err));
+}
 
 module.exports = sequelize;
