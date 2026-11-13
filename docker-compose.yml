@@ -1,38 +1,82 @@
 # Base de datos relacional (PostgreSQL) para el proyecto.
-# Uso:  docker compose up -d
+#
+# Requisito: archivo .env (no versionado) con DB_NAME, DB_USER y DB_PASS.
+#   cp .env.example .env
+#
+# Perfiles:
+#   Desarrollo (publica la BD en localhost:${DB_PORT:-5433}):  docker compose --profile dev up -d
+#   Despliegue (BD sin puerto en el host, solo red interna):   docker compose --profile deploy up -d
+#   Adminer (opcional, agregar al perfil elegido):             docker compose --profile dev --profile tools up -d
+#
+# No levantar dev y deploy a la vez: comparten el volumen db_data.
 # Los scripts de ./database se ejecutan automaticamente la PRIMERA vez que se crea el volumen.
-# Para reiniciar la BD desde cero:  docker compose down -v && docker compose up -d
+# Para reiniciar la BD desde cero:  docker compose --profile dev down -v && docker compose --profile dev up -d
+
+x-db-base: &db-base
+  image: postgres:16-alpine
+  restart: unless-stopped
+  environment:
+    POSTGRES_DB: ${DB_NAME:?DB_NAME no definida en .env}
+    POSTGRES_USER: ${DB_USER:?DB_USER no definida en .env}
+    POSTGRES_PASSWORD: ${DB_PASS:?DB_PASS no definida en .env}
+  volumes:
+    - db_data:/var/lib/postgresql/data
+    - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+    - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    interval: 5s
+    timeout: 5s
+    retries: 10
+    start_period: 10s
+  networks:
+    - gymhub_db_net
+
 services:
+  # Despliegue: el puerto de la BD NO se publica hacia el host.
   db:
-    image: postgres:16-alpine
+    <<: *db-base
     container_name: demo_hia_db
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${DB_NAME:-demo_hia}
-      POSTGRES_USER: ${DB_USER:-demo_hia}
-      POSTGRES_PASSWORD: ${DB_PASS:-demo_hia_pass}
+    profiles: ["deploy"]
+
+  # Desarrollo: igual que db, pero publica el puerto para el backend local.
+  db-dev:
+    <<: *db-base
+    container_name: demo_hia_db_dev
+    profiles: ["dev"]
     ports:
       - "${DB_PORT:-5433}:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+    networks:
+      gymhub_db_net:
+        aliases:
+          - db
+      # La red interna no permite publicar puertos; esta red solo sirve para exponer 5433 al host.
+      default: {}
 
-  # Administrador web de la BD (opcional): docker compose --profile tools up -d
+  # Administrador web de la BD (opcional).
   adminer:
     image: adminer:4
     container_name: demo_hia_adminer
     profiles: ["tools"]
     restart: unless-stopped
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+        required: false
+      db-dev:
+        condition: service_healthy
+        required: false
+    networks:
+      - gymhub_db_net
+      - default
     ports:
       - "8080:8080"
+
+networks:
+  gymhub_db_net:
+    name: gymhub_db_net
+    driver: bridge
+    internal: true
 
 volumes:
   db_data:

@@ -20,14 +20,27 @@ Proyecto unificado para el trabajo final: **frontend + backend + base de datos r
 ### 1. Base de datos
 
 ```bash
-docker compose up -d db
+cp .env.example .env                 # obligatorio: las credenciales de la BD salen solo de acá
+docker compose --profile dev up -d   # desarrollo: publica la BD en localhost:5433
 ```
 
 Crea un PostgreSQL en `localhost:5433` y carga automáticamente [`database/01_schema.sql`](database/01_schema.sql) (tablas) y [`database/02_seed.sql`](database/02_seed.sql) (roles y datos demo).
 
-- Reiniciar desde cero (borra los datos): `docker compose down -v && docker compose up -d db`
-- Visor web opcional (Adminer en http://localhost:8080): `docker compose --profile tools up -d`
-  (sistema: PostgreSQL · servidor: `db` · usuario/clave/base: ver `.env.example`)
+`DB_NAME`, `DB_USER` y `DB_PASS` son **obligatorias** en `.env` (no versionado): si falta alguna, `docker compose` falla con un mensaje y no arranca.
+
+Perfiles disponibles en [`docker-compose.yml`](docker-compose.yml):
+
+| Perfil | Comando | Servicio | Puerto en el host |
+|---|---|---|---|
+| `dev` | `docker compose --profile dev up -d` | `db-dev` | `localhost:${DB_PORT:-5433}` |
+| `deploy` | `docker compose --profile deploy up -d` | `db` | Ninguno: solo se accede por la red interna `gymhub_db_net` (host `db`) |
+| `tools` | se agrega al perfil elegido, p. ej. `docker compose --profile dev --profile tools up -d` | `adminer` | `localhost:8080` |
+
+- No levantes `dev` y `deploy` a la vez: comparten el volumen `db_data`.
+- Estado y healthcheck: `docker compose --profile dev ps` tiene que mostrar `healthy`.
+- Reiniciar desde cero (borra los datos): `docker compose --profile dev down -v && docker compose --profile dev up -d`
+- Visor web opcional (Adminer en http://localhost:8080): `docker compose --profile dev --profile tools up -d`. Espera a que la BD esté `healthy`.
+  (sistema: PostgreSQL · servidor: `db` · usuario/clave/base: los de tu `.env`)
 
 ### 2. Backend
 
@@ -140,7 +153,7 @@ erDiagram
 
 Todas las tablas (salvo `roles`, `usuario_roles` y `rutina_ejercicios`) tienen además `createdAt` y `updatedAt`.
 
-El backend mantiene `sequelize.sync()` al arrancar: si una tabla no existe la crea, pero **no modifica** las existentes. Si se cambia un modelo de Sequelize, hay que reflejar el cambio en `database/01_schema.sql` y recrear la base (`docker compose down -v`).
+El backend mantiene `sequelize.sync()` al arrancar: si una tabla no existe la crea, pero **no modifica** las existentes. Si se cambia un modelo de Sequelize, hay que reflejar el cambio en `database/01_schema.sql` y recrear la base (`docker compose --profile dev down -v`).
 
 ## Notas para el equipo
 
