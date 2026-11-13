@@ -1,0 +1,139 @@
+# Compose base de GymHub (SCRUM-53)
+# Define la topología común de servicios, redes aisladas y volúmenes persistentes.
+# Uso para Desarrollo: docker compose -f compose.yaml -f compose.dev.yaml up -d
+# Uso para Producción: docker compose -f compose.yaml -f compose.prod.yaml up -d
+
+services:
+  # FRONTEND (Nginx sirviendo SPA compilada de Angular y proxy reverso /api/)
+  frontend:
+    restart: unless-stopped
+    networks:
+      - frontend_net
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+
+  # BACKEND (API Express en Node 22)
+  backend:
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - frontend_net
+      - db_net
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1024M
+
+  # BASE DE DATOS PRIMARIA (PostgreSQL 16)
+  db:
+    image: postgres:16-alpine
+    container_name: demo_hia_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-demo_hia}
+      POSTGRES_USER: ${DB_USER:-demo_hia}
+      POSTGRES_PASSWORD: ${DB_PASS:-demo_hia_pass}
+      POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER:-replicator}
+      POSTGRES_REPLICA_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-replicator_pass}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - ./database/replication/setup-primary.sh:/docker-entrypoint-initdb.d/03_setup_primary.sh:ro
+      - ./database/config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    networks:
+      - db_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1536M
+
+  # NODO RÉPLICA STANDBY (Solo Lectura)
+  db-replica:
+    image: postgres:16-alpine
+    container_name: demo_hia_db_replica
+    profiles: ["cluster", "prod"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PRIMARY_HOST: db
+      PRIMARY_PORT: 5432
+      POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER:-replicator}
+      POSTGRES_REPLICA_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-replicator_pass}
+      REPLICATION_SLOT: standby_slot_1
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - db_replica_data:/var/lib/postgresql/data
+      - ./database/replication/entrypoint-replica.sh:/scripts/entrypoint-replica.sh:ro
+    entrypoint: ["/scripts/entrypoint-replica.sh"]
+    networks:
+      - db_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_REPLICA_USER} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
+
+  # SERVICIO DE BACKUPS AUTOMÁTICOS (SCRUM-37)
+  backup:
+    build:
+      context: ./database/backup
+    image: gymhub-backup:latest
+    container_name: demo_hia_backup
+    profiles: ["backups", "tools", "prod"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-demo_hia}
+      DB_USER: ${DB_USER:-demo_hia}
+      DB_PASS: ${DB_PASS:-demo_hia_pass}
+      BACKUP_CRON_SCHEDULE: ${BACKUP_CRON_SCHEDULE:-0 3 * * *}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      RUN_BACKUP_ON_STARTUP: ${RUN_BACKUP_ON_STARTUP:-true}
+    volumes:
+      - db_backups:/backups
+    networks:
+      - db_net
+
+networks:
+  frontend_net:
+    name: gymhub_frontend_net
+    driver: bridge
+  db_net:
+    name: gymhub_db_net
+    driver: bridge
+    internal: false
+
+volumes:
+  db_data:
+    name: gymhub_db_data
+  db_replica_data:
+    name: gymhub_db_replica_data
+  db_backups:
+    name: gymhub_db_backups
+  pgadmin_data:
+    name: gymhub_pgadmin_data

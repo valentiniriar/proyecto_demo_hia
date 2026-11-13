@@ -1,0 +1,58 @@
+# Configuración de Desarrollo (compose.dev.yaml - SCRUM-53)
+# Habilita puertos locales para debugging, montaje en vivo de código y visor de BD.
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gymhub_frontend_dev
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: development
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gymhub_backend_dev
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-demo_hia}
+      DB_USER: ${DB_USER:-demo_hia}
+      DB_PASS: ${DB_PASS:-demo_hia_pass}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_123456789}
+
+  db:
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+
+  db-replica:
+    ports:
+      - "127.0.0.1:${DB_REPLICA_PORT:-5434}:5432"
+
+  # pgAdmin habilitado en dev para inspección gráfica
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: demo_hia_pgadmin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@gymhub.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin1234}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./database/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    networks:
+      - db_net
