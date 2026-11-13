@@ -1,0 +1,22 @@
+# Configuración del túnel de Cloudflare (SCRUM-60).
+# Versionada SIN credenciales: el token del túnel se pasa por la variable
+# CLOUDFLARE_TUNNEL_TOKEN (archivo .env de la raíz, que no se sube al repo).
+#
+# Solo se publica el Nginx del frontend. Nginx sirve la SPA y hace de proxy de /api
+# hacia el backend por la red interna de Docker. Base de datos, pgAdmin, Prometheus,
+# Grafana, n8n y Mantis NO tienen regla de ingreso: no son accesibles por el túnel.
+
+# El túnel abre conexiones SALIENTES hacia Cloudflare (puerto 7844).
+# No se abre ningún puerto en el router ni en el firewall.
+protocol: auto
+no-autoupdate: true
+
+# Métricas de cloudflared para Prometheus (SCRUM-85). Solo en la red interna.
+metrics: 0.0.0.0:2000
+
+ingress:
+  # Cualquier hostname que en el panel de Cloudflare apunte a este túnel va al frontend.
+  - service: http://frontend:8080
+    # Nginx habla HTTP plano dentro de la red Docker; el HTTPS lo termina Cloudflare.
+    originRequest:
+      connectTimeout: 10s
