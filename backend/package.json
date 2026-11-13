@@ -19,7 +19,8 @@
     "test": "node --test test/smoke.test.js",
     "dev": "nodemon index.js",
     "lint": "eslint .",
-    "test:ci": "node --test test/smoke.test.js"
+    "test:ci": "node --test test/smoke.test.js",
+    "test:mp": "node scripts/test-mp.js"
   },
   "dependencies": {
     "axios": "^1.18.1",

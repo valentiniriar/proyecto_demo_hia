@@ -9,6 +9,21 @@ dist/
 !.env.example
 *.pem
 *.key
+*.p12
+*.pfx
+credentials*.json
+cloudflared/*.json
+
+# Dumps y backups de la base (pueden tener datos reales). Los scripts versionados
+# de database/ (esquema y seed demo) se excluyen explícitamente de esta regla.
+*.sql
+!database/*.sql
+*.sql.gz
+*.dump
+*.backup
+*.bak
+backups/
+dumps/
 
 # Logs / sistema / editores
 *.log
