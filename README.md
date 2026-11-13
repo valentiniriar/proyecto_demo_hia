@@ -1,30 +1,38 @@
-# Proyecto Demo HIA (GymHub)
+# Proyecto Demo HIA — GymHub
 
-Proyecto unificado para el trabajo final: **frontend + backend + base de datos relacional** en un solo repositorio.
+> **Práctica Integradora Final**  
+> Aplicación web integral para la gestión de gimnasios (socios, rutinas asistidas por IA, cuotas y pagos).  
+> Arquitectura contenerizada con frontend en Angular, backend en Node.js/Express y clúster de alta disponibilidad en PostgreSQL 16.
 
-| Carpeta | Qué es | Tecnología |
-|---|---|---|
-| [`frontend/`](frontend) | Aplicación web (SPA) | Angular 21, Bootstrap, Chart.js |
-| [`backend/`](backend) | API REST | Node.js, Express 5, Sequelize, JWT, Swagger |
-| [`database/`](database) | Esquema y datos iniciales | PostgreSQL 16 (vía Docker) |
+---
 
-> Cada subcarpeta conserva su propio README con el detalle de módulos y decisiones de diseño.
+## 1. Requisitos Previos
 
-## Requisitos
+Para ejecutar el proyecto en cualquier entorno limpio (Windows 11 / macOS / Linux) se requiere:
+- **Docker Desktop** (con Docker Compose v2.20+ habilitado).
+- **Node.js** v20 o superior y **npm** v10+ (solo necesario si se desea desarrollo local fuera de contenedores).
+- **Git**.
 
-- [Node.js](https://nodejs.org) 20 o superior
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (para la base de datos)
+---
 
-## Puesta en marcha
+## 2. Configuración Inicial de Entorno
 
-### 1. Base de datos
+El proyecto incluye plantillas con valores listos para usar en desarrollo:
 
 ```bash
-cp .env.example .env                 # obligatorio: las credenciales de la BD salen solo de acá
-docker compose --profile dev up -d   # desarrollo: publica la BD en localhost:5433
+# 1. Clonar el repositorio
+git clone https://github.com/valentiniriar/proyecto_demo_hia.git
+cd proyecto_demo_hia
+
+# 2. Configurar variables de entorno generales
+cp .env.example .env
+
+# 3. Configurar variables de entorno del backend
+cp backend/.env.example backend/.env
 ```
 
-Crea un PostgreSQL en `localhost:5433` y carga automáticamente [`database/01_schema.sql`](database/01_schema.sql) (tablas) y [`database/02_seed.sql`](database/02_seed.sql) (roles y datos demo).
+> [!NOTE]
+> En `backend/.env` se debe definir una clave aleatoria para `JWT_SECRET` (ej: `JWT_SECRET=gymhub_secret_key_super_segura_123456`). Las claves de servicios externos (MercadoPago, Google OAuth, Groq, YouTube) son opcionales para la ejecución base del sistema.
 
 `DB_NAME`, `DB_USER`, `DB_PASS`, `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` son **obligatorias** en `.env` (no versionado): si falta alguna, `docker compose` falla con un mensaje y no arranca. Si tu `.env` es anterior, copiá las variables `PGADMIN_*` desde `.env.example`.
 
@@ -44,26 +52,77 @@ Perfiles disponibles en [`docker-compose.yml`](docker-compose.yml):
 - Adminer, alternativa liviana (http://127.0.0.1:8080): `docker compose --profile dev --profile adminer up -d`
   (sistema: PostgreSQL · servidor: `db` · usuario/clave/base: los de tu `.env`)
 
-### 2. Backend
+## 3. Puesta en Marcha con Docker Compose
+
+El proyecto cuenta con orquestación modular con redes y perfiles aislados.
+
+### 3.1 Modo Desarrollo (Recomendado)
+Levanta todos los servicios con hot-reload y puertos locales habilitados para debugging:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml up -d
+```
+
+**Servicios disponibles en desarrollo:**
+- **Frontend SPA (Angular/Nginx):** [http://localhost:8080](http://localhost:8080)
+- **API REST (Express):** [http://localhost:3000](http://localhost:3000)
+- **Documentación Swagger:** [http://localhost:3000/api/docs](http://localhost:3000/api/docs)
+- **PostgreSQL Primario:** `localhost:5433` (usuario: `demo_hia`, clave: `demo_hia_pass`, base: `demo_hia`)
+- **pgAdmin 4 (Administración BD):** [http://localhost:5050](http://localhost:5050) (usuario: `admin@gymhub.com`, clave: `admin1234`)
+
+### 3.2 Modo Clúster con Alta Disponibilidad y Replicación (E06)
+Para desplegar el clúster completo con nodo réplica en Hot Standby por streaming físico:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml --profile cluster up -d
+```
+- **PostgreSQL Réplica (Solo Lectura):** `localhost:5434`
+
+### 3.3 Modo Producción
+En producción se utilizan imágenes inmutables de GHCR y **ningún puerto de base de datos se expone al exterior**:
+
+```bash
+docker compose -f compose.yaml -f compose.prod.yaml --profile prod up -d
+```
+
+---
+
+## 4. Usuarios Demo Pre-cargados
+
+El script inicial `database/02_seed.sql` genera automáticamente usuarios con distintos roles para pruebas (contraseña para todos: `admin123` o `123456` según el rol):
+
+| Rol | Email | Uso / Permisos |
+|---|---|---|
+| **Administrador** | `admin@gymhub.com` | Gestión de socios, cobros, reportes globales y usuarios. |
+| **Entrenador** | `entrenador@gymhub.com` | Creación y asignación de rutinas, generación asistida con IA. |
+| **Socio** | `socio@gymhub.com` | Visualización de rutina personal, estado de cuota y pagos. |
+
+---
+
+## 5. Pruebas y Control de Calidad (CI)
+
+Para ejecutar la suite de calidad en el backend:
 
 ```bash
 cd backend
-cp .env.example .env      # y completar JWT_SECRET (las claves externas son opcionales, ver abajo)
 npm install
-npm run dev               # http://localhost:3000  ·  Swagger: http://localhost:3000/api/docs
+npm run lint         # Análisis estático de código con ESLint
+npm test:ci          # Smoke tests unitarios y de integración de endpoints críticos
 ```
 
-Las variables `DB_*` del `.env.example` ya apuntan a la base del paso 1. Sin las claves de MercadoPago, YouTube, Google, email o Groq, la API arranca igual pero esas funciones puntuales no van a andar.
+---
 
-### 3. Frontend
+## 6. Resolución de Problemas Frecuentes (Troubleshooting)
 
-```bash
-cd frontend
-npm install
-npm start                 # http://localhost:4200
-```
-
-El front consume la API en `http://localhost:3000/api/`.
+1. **Conflicto con puerto 5432 preexistente:**
+   - La base de datos de GymHub en desarrollo escucha en el puerto host `5433` precisamente para evitar colisiones con PostgreSQL locales.
+2. **Reiniciar la base de datos desde cero:**
+   ```bash
+   docker compose down -v
+   docker compose -f compose.yaml -f compose.dev.yaml up -d
+   ```
+3. **Verificar estado de salud de la API y conexión a BD:**
+   - Consultar el endpoint de healthcheck: `curl http://localhost:3000/api/health` (debe devolver `{ "status": "ok", "db": "up" }`).
 
 ## Usuarios de prueba
 

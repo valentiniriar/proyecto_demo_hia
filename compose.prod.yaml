@@ -1,0 +1,33 @@
+# Configuración de Producción (compose.prod.yaml - SCRUM-53)
+# Imágenes seguras de registro (GHCR), puertos de base de datos completamente aislados de la red externa.
+
+services:
+  frontend:
+    image: ghcr.io/valentiniriar/gymhub-frontend:latest
+    container_name: gymhub_frontend_prod
+    ports:
+      - "80:8080"
+    environment:
+      NODE_ENV: production
+
+  backend:
+    image: ghcr.io/valentiniriar/gymhub-backend:latest
+    container_name: gymhub_backend_prod
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST_PRIMARY: db
+      DB_PORT_PRIMARY: 5432
+      DB_HOST_REPLICA: db-replica
+      DB_PORT_REPLICA: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      JWT_SECRET: ${JWT_SECRET}
+
+  # En producción, ni el primario ni la réplica exponen puertos al host del servidor
+  db:
+    ports: []
+
+  db-replica:
+    ports: []

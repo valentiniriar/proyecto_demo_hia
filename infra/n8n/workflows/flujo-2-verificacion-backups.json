@@ -1,0 +1,165 @@
+{
+  "name": "Flujo 2 - Verificación de Backups y Notificación de Errores",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 4 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger (04:00 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300],
+      "id": "node-trigger-schedule"
+    },
+    {
+      "parameters": {
+        "command": "test -f /backups/latest_status.json && cat /backups/latest_status.json || echo '{\"status\":\"not_found\"}'"
+      },
+      "name": "Leer Status Backup",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "id": "node-read-status"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = JSON.parse($input.first().json.stdout || '{}');\nconst now = new Date();\nconst backupTime = output.timestamp ? new Date(output.timestamp) : null;\nconst hoursDiff = backupTime ? (now - backupTime) / (1000 * 60 * 60) : 999;\n\nconst isValid = output.status === 'success' && hoursDiff < 24;\n\nreturn [{\n  json: {\n    isValid,\n    status: output.status || 'unknown',\n    filename: output.filename || 'none',\n    size: output.size || '0',\n    duration: output.duration_seconds || 0,\n    hoursDiff: Math.round(hoursDiff),\n    timestamp: output.timestamp || 'N/A'\n  }\n}];"
+      },
+      "name": "Validar Antiguedad y Estado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300],
+      "id": "node-validate"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isValid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "¿Backup Válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "id": "node-if-valid"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mantis:80/api/rest/issues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.MANTIS_API_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "summary",
+              "value": "=Fallo en verificación de backup diario: {{ $json.filename }}"
+            },
+            {
+              "name": "description",
+              "value": "=El flujo n8n detectó anomalía en el backup programado. Estado: {{ $json.status }}. Antigüedad: {{ $json.hoursDiff }} horas. Revisar volumen db_backups y logs del contenedor backup."
+            },
+            {
+              "name": "category",
+              "value": "{\"name\": \"Infraestructura\"}"
+            },
+            {
+              "name": "severity",
+              "value": "{\"name\": \"major\"}"
+            }
+          ]
+        }
+      },
+      "name": "Crear Incidencia en Mantis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1100, 420],
+      "id": "node-create-mantis"
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('Backup diario verificado exitosamente:', $input.first().json);\nreturn $input.all();"
+      },
+      "name": "Log Éxito",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 200],
+      "id": "node-log-ok"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (04:00 AM)": {
+      "main": [
+        [
+          {
+            "node": "Leer Status Backup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Status Backup": {
+      "main": [
+        [
+          {
+            "node": "Validar Antiguedad y Estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Antiguedad y Estado": {
+      "main": [
+        [
+          {
+            "node": "¿Backup Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Backup Válido?": {
+      "main": [
+        [
+          {
+            "node": "Log Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Crear Incidencia en Mantis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
