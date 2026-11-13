@@ -1,0 +1,76 @@
+# Mantis Bug Tracker para GymHub (SCRUM-70).
+#
+# Primera vez (crea .env con claves aleatorias, instala el esquema y configura todo):
+#   bash infra/mantis/setup.sh
+# Uso diario:
+#   docker compose -f infra/mantis/docker-compose.yml up -d
+#   → http://localhost:8990  (solo desde esta PC; NO se publica a Internet ni a la LAN)
+#
+# n8n se conecta por la red "gymhub_tools_net" usando http://mantis/api/rest/...
+name: gymhub-mantis
+
+services:
+  mantis-db:
+    image: mariadb:11.4
+    container_name: gymhub-mantis-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: bugtracker
+      MARIADB_USER: mantis
+      MARIADB_PASSWORD: ${MANTIS_DB_PASS:?Ejecutar infra/mantis/setup.sh o definir MANTIS_DB_PASS en infra/mantis/.env}
+      MARIADB_ROOT_PASSWORD: ${MANTIS_DB_ROOT_PASS:?Definir MANTIS_DB_ROOT_PASS en infra/mantis/.env}
+    volumes:
+      - mantis_db:/var/lib/mysql
+    networks:
+      - mantis_internal
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  mantis:
+    build: .
+    image: gymhub-mantis:2.28.4
+    container_name: gymhub-mantis
+    restart: unless-stopped
+    depends_on:
+      mantis-db:
+        condition: service_healthy
+    environment:
+      MANTIS_DB_HOST: mantis-db
+      MANTIS_DB_NAME: bugtracker
+      MANTIS_DB_USER: mantis
+      MANTIS_DB_PASS: ${MANTIS_DB_PASS:?Definir MANTIS_DB_PASS}
+      MANTIS_CRYPTO_SALT: ${MANTIS_CRYPTO_SALT:?Definir MANTIS_CRYPTO_SALT}
+      MANTIS_PATH: http://localhost:${MANTIS_HOST_PORT:-8990}/
+    # Acceso restringido: solo localhost de la PC (administración remota por Tailscale, SCRUM-61).
+    ports:
+      - "127.0.0.1:${MANTIS_HOST_PORT:-8990}:80"
+    networks:
+      mantis_internal: {}
+      tools:
+        aliases: [mantis]
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 256M
+
+networks:
+  # BD de Mantis aislada: sin salida a Internet y sin otros servicios.
+  mantis_internal:
+    name: gymhub_mantis_internal
+    internal: true
+  # Red compartida con n8n (y otras herramientas internas).
+  tools:
+    name: gymhub_tools_net
+
+volumes:
+  mantis_db:
+    name: gymhub_mantis_db
