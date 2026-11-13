@@ -4,7 +4,7 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
-test_mp.js
+scripts/
 *.test.js
 tests/
 coverage/
