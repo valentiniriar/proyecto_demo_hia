@@ -1,0 +1,79 @@
+groups:
+  - name: gymhub-availability
+    interval: 15s
+    rules:
+      - alert: GymHubBackendUnavailable
+        expr: probe_success{job="blackbox-local-health",instance="http://host.docker.internal:3000/api/health"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: backend
+        annotations:
+          summary: 'La API de GymHub no responde'
+          description: 'Blackbox no obtiene HTTP 2xx de /api/health en el backend local durante 1 minuto.'
+      - alert: GymHubFrontendUnavailable
+        expr: probe_success{job="blackbox-local-health",instance="http://host.docker.internal:8081/api/health"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: frontend
+        annotations:
+          summary: 'El frontend Docker de GymHub no responde'
+          description: 'Blackbox no obtiene HTTP 2xx a través del proxy Nginx durante 1 minuto.'
+      - alert: GymHubExporterUnavailable
+        expr: up{job=~"node-exporter|cadvisor|postgres-primary|blackbox-exporter"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: observability
+        annotations:
+          summary: 'Un exporter de monitoreo está caído'
+          description: 'Prometheus no puede recopilar las métricas del target {{ $labels.job }}.'
+      - alert: GymHubPostgresPrimaryUnavailable
+        expr: pg_up{job="postgres-primary"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: 'PostgreSQL primario no está disponible'
+          description: 'postgres-exporter indica pg_up=0 durante 1 minuto.'
+  - name: gymhub-capacity
+    interval: 15s
+    rules:
+      - alert: GymHubDockerCpuHigh
+        expr: 100 * (1 - avg(rate(node_cpu_seconds_total{job="node-exporter",mode="idle"}[5m]))) > 85
+        for: 10m
+        labels:
+          severity: warning
+          component: docker-vm
+        annotations:
+          summary: 'CPU alta en el entorno Linux de Docker'
+          description: 'CPU > 85% durante 10 minutos. No corresponde a la CPU total del Mac.'
+      - alert: GymHubDockerMemoryHigh
+        expr: 100 * (1 - node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"}) > 90
+        for: 10m
+        labels:
+          severity: warning
+          component: docker-vm
+        annotations:
+          summary: 'Memoria alta en el entorno Linux de Docker'
+          description: 'Memoria Linux utilizada > 90% durante 10 minutos.'
+      - alert: GymHubDockerDiskHigh
+        expr: 100 * (1 - node_filesystem_avail_bytes{job="node-exporter",mountpoint="/",fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{job="node-exporter",mountpoint="/",fstype!~"tmpfs|overlay"}) > 90
+        for: 10m
+        labels:
+          severity: warning
+          component: docker-vm
+        annotations:
+          summary: 'Disco Linux casi lleno'
+          description: 'Espacio utilizado > 90% durante 10 minutos. Requiere que node-exporter exponga el filesystem raíz.'
+      - alert: GymHubPostgresConnectionsHigh
+        expr: pg_stat_database_numbackends{job="postgres-primary",datname="demo_hia"} > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: 'Muchas conexiones simultáneas a PostgreSQL'
+          description: 'Más de 80 conexiones durante 5 minutos. Umbral inicial para laboratorio, ajustar según max_connections.'
