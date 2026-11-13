@@ -1,0 +1,91 @@
+# Verificaciones de cierre (SCRUM-72) — 13/11/2026
+# Entorno: compose.yaml + compose.dev.yaml (+ perfil cluster), BD demo
+
+### BUG-001 (SCRUM-50) URLs de API hardcodeadas
+$ grep -rn 'localhost:3000' frontend/src/app | wc -l
+0
+$ grep -rln 'environment.apiUrl' frontend/src/app/services | wc -l
+12
+
+### BUG-002 (SCRUM-31) test_mp.js
+$ ls backend/test_mp.js backend/scripts/test-mp.js
+ls: cannot access 'backend/test_mp.js': No such file or directory
+backend/scripts/test-mp.js
+$ grep -c 'd:\\Facultad' backend/scripts/test-mp.js
+0
+
+### BUG-004 (SCRUM-64) dependencias vulnerables
+$ (cd backend && npm audit --omit=dev --audit-level=high)
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+exit=0
+$ (cd frontend && npm audit --omit=dev --audit-level=high)
+found 0 vulnerabilities
+exit=0
+
+### BUG-005 (SCRUM-32) npm test / BUG-006 (SCRUM-82) tests de IA
+$ (cd backend && npm test)
+ok 1 - Acepta una rutina válida
+ok 2 - Rechaza nombre excesivo e instrucciones maliciosas (antes/después)
+ok 3 - Rechaza listas de ejercicios excesivas o inválidas
+ok 4 - Aplica 10 solicitudes por usuario en 15 min, con cuotas independientes
+ok 5 - El prompt separa datos de instrucciones y no devuelve la API key
+ok 6 - SCRUM-81 · POST /api/pagos
+ok 7 - SCRUM-65 · Endurecimiento de la API
+ok 8 - Smoke Tests - Backend GymHub API
+# tests 32
+# pass 32
+# fail 0
+
+### BUG-007 (SCRUM-24) puerto 5432 en conflicto
+$ grep -n '5433' compose.dev.yaml
+39:      - "127.0.0.1:${DB_PORT:-5433}:5432"
+$ docker ps (BD de GymHub)
+demo_hia_db 127.0.0.1:5433->5432/tcp
+(el PostgreSQL 17 nativo de Windows sigue escuchando en 5432 sin conflicto)
+
+### BUG-003 (SCRUM-42) consultas del dashboard y listado de socios (BD demo)
+$ GET /api/dashboard/stats
+{"status":"1","msg":"Estadísticas obtenidas","data":{"usuarios":{"total":9,"activos":9,"inactivos":0},"roles":{"admins":1,"entrenadores":1,"socios":7},"finanzas":{"ingresosTotales":125000}}}
+  tiempo: 0.247281s
+$ GET /api/usuarios/socios/list (cantidad)
+  socios devueltos (clave "usuarios"): 7
+  tiempo: 0.226500s
+
+$ SELECT conteo por rol directo en PostgreSQL
+admin|1
+entrenador|1
+socio|7
+
+### BUG-009 (SCRUM-38) backup y restauración con pg_dump/pg_restore
+  dump: 23767 bytes
+NOTICE:  database "verif72_restore" does not exist, skipping
+  pg_restore: OK
+  conteo origen vs restaurada (usuarios, tarifas, pagos, rutina_ejercicios):
+  demo_hia: 9 / 8 / 5 / 3
+  verif72_restore: 9 / 8 / 5 / 3
+  (base de prueba y dump eliminados)
+
+### BUG-010 (SCRUM-45) réplica por streaming con replication slot
+$ docker ps (primario y réplica)
+demo_hia_db_replica Up 30 seconds (healthy)
+demo_hia_db Up 41 seconds (healthy)
+$ primario: pg_stat_replication
+ application_name |   state   | sync_state |   replay_lag    
+------------------+-----------+------------+-----------------
+ walreceiver      | streaming | async      | 00:00:00.002245
+(1 row)
+
+$ primario: pg_replication_slots
+   slot_name    | active | wal_status 
+----------------+--------+------------
+ standby_slot_1 | t      | reserved
+(1 row)
+
+$ réplica: pg_is_in_recovery()
+t
+$ escritura en el primario y lectura en la réplica
+  réplica ve la fila: 1
+$ réplica rechaza escrituras
+ERROR:  cannot execute DELETE in a read-only transaction
+  (fila de prueba borrada en el primario)

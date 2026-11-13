@@ -1,0 +1,14 @@
+{
+  "summary": "BUG-002: Script de prueba test_mp.js con ruta absoluta a un .env de otra máquina",
+  "category": "Seguridad",
+  "severity": "crash",
+  "priority": "immediate",
+  "description": "backend/test_mp.js cargaba el .env desde d:Facultad... y estaba suelto en el backend. Riesgo de subir credenciales de MercadoPago.\n\nRegistrada en el relevamiento de incidencias de SCRUM-71 (docs/SCRUM-71-incidencias-mantis.md). Reportó: Valentín Iriarte. Responsable: Valentín Iriarte.",
+  "steps_to_reproduce": "ls backend/test_mp.js; grep Facultad backend/test_mp.js",
+  "additional_information": "Jira: SCRUM-31 · PR: #32",
+  "tags": [
+    "SCRUM-31",
+    "SCRUM-71",
+    "SCRUM-72"
+  ]
+}
