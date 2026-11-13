@@ -1,0 +1,55 @@
+# Publicación en Internet con Cloudflare Tunnel (SCRUM-60).
+# Se suma a los compose base y de entorno:
+#
+#   Túnel con nombre (dominio propio, token en .env):
+#     docker compose -f compose.yaml -f compose.dev.yaml -f compose.tunnel.yaml --profile tunel up -d --build
+#
+#   Túnel rápido para una demo (sin cuenta de Cloudflare, URL *.trycloudflare.com al azar):
+#     docker compose -f compose.yaml -f compose.dev.yaml -f compose.tunnel.yaml --profile tunel-rapido up -d --build
+#     docker logs gymhub_cloudflared_rapido 2>&1 | grep trycloudflare.com
+#
+# El túnel solo abre conexiones salientes; no hay que abrir puertos en el router.
+# Detalle y diagrama: docs/SCRUM-60-cloudflare-tunnel.md
+
+x-cloudflared: &cloudflared
+  image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
+  restart: unless-stopped
+  depends_on:
+    - frontend
+  networks:
+    - frontend_net
+  # Solo necesita salir a Internet; corre sin privilegios y con el sistema de archivos de solo lectura.
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  deploy:
+    resources:
+      limits:
+        cpus: '0.5'
+        memory: 128M
+
+services:
+  # Nginx llega al backend por la red interna (antes: host.docker.internal:3000).
+  frontend:
+    environment:
+      BACKEND_UPSTREAM: http://backend:3000
+
+  # Túnel con nombre: el token sale de CLOUDFLARE_TUNNEL_TOKEN (.env, nunca en el repo).
+  cloudflared:
+    <<: *cloudflared
+    container_name: gymhub_cloudflared
+    profiles: ["tunel"]
+    command: ["tunnel", "--config", "/etc/cloudflared/config.yml", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    volumes:
+      - ./infra/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+
+  # Túnel rápido (TryCloudflare): ideal para mostrar la app en clase sin dominio propio.
+  cloudflared-rapido:
+    <<: *cloudflared
+    container_name: gymhub_cloudflared_rapido
+    profiles: ["tunel-rapido"]
+    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "--url", "http://frontend:8080"]
