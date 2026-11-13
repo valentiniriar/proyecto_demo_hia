@@ -39,4 +39,27 @@ scrape_configs:
       - target_label: __address__
         replacement: 'blackbox-exporter:9115'
 # Pendiente: agregar scrape de la réplica PostgreSQL cuando exista.
-# Pendiente: agregar URL pública con HTTPS cuando se publique la app.
+
+  # SCRUM-85: disponibilidad de la URL pública (Cloudflare Tunnel) vista desde afuera.
+  # Los targets se cargan desde archivo para no tocar esta config cuando cambia la URL
+  # (el túnel rápido genera una nueva en cada arranque): infra/monitoring/publicar-target.sh
+  - job_name: blackbox-publico
+    scrape_interval: 30s
+    metrics_path: /probe
+    params:
+      module: [https_publico]
+    file_sd_configs:
+      - files: ['/etc/prometheus/targets/publico.yml']
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 'blackbox-exporter:9115'
+  # SCRUM-85: métricas del propio túnel (conexiones activas, errores hacia el origen).
+  - job_name: cloudflared
+    file_sd_configs:
+      - files: ['/etc/prometheus/targets/cloudflared.yml']
+        refresh_interval: 30s
