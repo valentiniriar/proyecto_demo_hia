@@ -1,0 +1,69 @@
+# npm audit (backend) - 2026-11-13T15:01Z - node v20.20.2 / npm 10.8.2
+
+## npm audit --omit=dev (dependencias de producción)
+# npm audit report
+
+uuid  <11.1.1
+Severity: moderate
+uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided - https://github.com/advisories/GHSA-w5hq-g745-h8pq
+fix available via `npm audit fix --force`
+Will install sequelize@3.30.0, which is a breaking change
+node_modules/uuid
+  sequelize  0.0.0-development || >=3.30.1
+  Depends on vulnerable versions of uuid
+  node_modules/sequelize
+
+2 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+## npm audit (incluye herramientas de desarrollo)
+# npm audit report
+
+deepmerge  >=4.2.0
+deepmerge mergeObject() allows prototype poisoning of returned objects - https://github.com/advisories/GHSA-gcqx-w48m-w2h4
+fix available via `npm audit fix --force`
+Will install swagger-autogen@2.7.7, which is a breaking change
+node_modules/deepmerge
+  swagger-autogen  >=2.7.8
+  Depends on vulnerable versions of deepmerge
+  node_modules/swagger-autogen
+
+minimatch  7.0.0 - 11.0.0
+Severity: moderate
+minimatch has potential denial of service via globparts amplification - https://github.com/advisories/GHSA-g3hv-75wg-m249
+fix available via `npm audit fix --force`
+Will install nodemon@3.1.11, which is a breaking change
+node_modules/minimatch
+  @eslint/config-array  >=0.23.0
+  Depends on vulnerable versions of minimatch
+  node_modules/@eslint/config-array
+  eslint  >=10.0.0-alpha.0
+  Depends on vulnerable versions of @eslint/config-array
+  Depends on vulnerable versions of minimatch
+  node_modules/eslint
+    @eslint/js  >=10.0.1
+    Depends on vulnerable versions of eslint
+    node_modules/@eslint/js
+  nodemon  >=3.1.12
+  Depends on vulnerable versions of minimatch
+  node_modules/nodemon
+
+uuid  <11.1.1
+Severity: moderate
+uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided - https://github.com/advisories/GHSA-w5hq-g745-h8pq
+fix available via `npm audit fix --force`
+Will install sequelize@3.30.0, which is a breaking change
+node_modules/uuid
+  sequelize  0.0.0-development || >=3.30.1
+  Depends on vulnerable versions of uuid
+  node_modules/sequelize
+
+9 vulnerabilities (2 low, 7 moderate)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
