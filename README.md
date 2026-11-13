@@ -34,7 +34,23 @@ cp backend/.env.example backend/.env
 > [!NOTE]
 > En `backend/.env` se debe definir una clave aleatoria para `JWT_SECRET` (ej: `JWT_SECRET=gymhub_secret_key_super_segura_123456`). Las claves de servicios externos (MercadoPago, Google OAuth, Groq, YouTube) son opcionales para la ejecución base del sistema.
 
----
+`DB_NAME`, `DB_USER`, `DB_PASS`, `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` son **obligatorias** en `.env` (no versionado): si falta alguna, `docker compose` falla con un mensaje y no arranca. Si tu `.env` es anterior, copiá las variables `PGADMIN_*` desde `.env.example`.
+
+Perfiles disponibles en [`docker-compose.yml`](docker-compose.yml):
+
+| Perfil | Comando | Servicio | Puerto en el host |
+|---|---|---|---|
+| `dev` | `docker compose --profile dev up -d` | `db-dev` | `localhost:${DB_PORT:-5433}` |
+| `deploy` | `docker compose --profile deploy up -d` | `db` | Ninguno: solo se accede por la red interna `gymhub_db_net` (host `db`) |
+| `tools` | se agrega al perfil elegido, p. ej. `docker compose --profile dev --profile tools up -d` | `pgadmin` | `127.0.0.1:${PGADMIN_PORT:-5050}` |
+| `adminer` | se agrega al perfil elegido, p. ej. `docker compose --profile dev --profile adminer up -d` | `adminer` | `127.0.0.1:8080` |
+
+- No levantes `dev` y `deploy` a la vez: comparten el volumen `db_data`.
+- Estado y healthcheck: `docker compose --profile dev ps` tiene que mostrar `healthy`.
+- Reiniciar desde cero (borra los datos): `docker compose --profile dev down -v && docker compose --profile dev up -d`
+- pgAdmin 4 (http://127.0.0.1:5050): `docker compose --profile dev --profile tools up -d`. Espera a que la BD esté `healthy`. Se entra con `PGADMIN_DEFAULT_EMAIL` / `PGADMIN_DEFAULT_PASSWORD` del `.env`, y el servidor "GymHub PostgreSQL (db)" ya viene cargado (la contraseña es `DB_PASS`).
+- Adminer, alternativa liviana (http://127.0.0.1:8080): `docker compose --profile dev --profile adminer up -d`
+  (sistema: PostgreSQL · servidor: `db` · usuario/clave/base: los de tu `.env`)
 
 ## 3. Puesta en Marcha con Docker Compose
 
@@ -107,3 +123,101 @@ npm test:ci          # Smoke tests unitarios y de integración de endpoints crí
    ```
 3. **Verificar estado de salud de la API y conexión a BD:**
    - Consultar el endpoint de healthcheck: `curl http://localhost:3000/api/health` (debe devolver `{ "status": "ok", "db": "up" }`).
+
+## Usuarios de prueba
+
+Cargados por `database/02_seed.sql` (**solo desarrollo**). Contraseña de los tres: `demo1234`
+
+| Rol | Email |
+|---|---|
+| admin | admin@demo.com |
+| entrenador | entrenador@demo.com |
+| socio | socio@demo.com |
+
+## Modelo de datos
+
+```mermaid
+erDiagram
+    usuarios ||--o{ usuario_roles : tiene
+    roles ||--o{ usuario_roles : asigna
+    usuarios ||--o{ rutinas : "se le asignan"
+    rutinas ||--o{ rutina_ejercicios : incluye
+    ejercicios ||--o{ rutina_ejercicios : "forma parte"
+    usuarios ||--o{ suscripciones : contrata
+    suscripciones ||--o{ tarifas : "genera cuotas"
+    tarifas ||--o{ pagos : "se abona con"
+
+    usuarios {
+        int id PK
+        string dni UK
+        string email UK
+        string nombre
+        string apellido
+        string password_hash
+        string google_id
+        boolean estado
+    }
+    roles {
+        int id PK
+        string nombre UK
+    }
+    usuario_roles {
+        int id_usuario PK,FK
+        int id_rol PK,FK
+    }
+    ejercicios {
+        int id PK
+        string nombre
+        string descripcion
+        string youtube_url
+        boolean activo
+    }
+    rutinas {
+        int id PK
+        int usuarioId FK
+        string dia_semana
+        string turno
+        string nombre
+        string descripcion
+        boolean activo
+    }
+    rutina_ejercicios {
+        int id_rutina PK,FK
+        int id_ejercicio PK,FK
+    }
+    suscripciones {
+        int id PK
+        int usuarioId FK
+        string fecha_inicio
+        string fecha_fin
+        string precio
+        boolean activo
+    }
+    tarifas {
+        int id PK
+        int suscripcionId FK
+        string anio
+        string mes
+        string precio
+        boolean pagado
+        boolean activo
+    }
+    pagos {
+        int id PK
+        int tarifaId FK
+        string fecha
+        string transaccion
+        string monto
+        boolean activo
+    }
+```
+
+Todas las tablas (salvo `roles`, `usuario_roles` y `rutina_ejercicios`) tienen además `createdAt` y `updatedAt`.
+
+El backend mantiene `sequelize.sync()` al arrancar: si una tabla no existe la crea, pero **no modifica** las existentes. Si se cambia un modelo de Sequelize, hay que reflejar el cambio en `database/01_schema.sql` y recrear la base (`docker compose --profile dev down -v`).
+
+## Notas para el equipo
+
+- **Nunca subir `.env`** (está en `.gitignore`); solo se versiona `.env.example`.
+- Flujo de trabajo (ramas, commits, Pull Requests y Definition of Done): ver [`CONTRIBUTING.md`](CONTRIBUTING.md). Resumen: rama `feature/SCRUM-XX-...` desde `develop`, PR hacia `develop` con revisión de al menos otra persona, y `develop → main` al cierre de cada sprint.
+- Las URLs de la API están escritas a mano en `frontend/src/app/services/*.ts` (`http://localhost:3000/...`); si se despliega, conviene centralizarlas en un `environment`.
