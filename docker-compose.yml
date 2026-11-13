@@ -53,7 +53,8 @@ services:
     container_name: demo_hia_db_dev
     profiles: ["dev"]
     ports:
-      - "${DB_PORT:-5433}:5432"
+      # SCRUM-61: la base solo se publica en la PC local, nunca en la LAN.
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
     networks:
       gymhub_db_net:
         aliases:

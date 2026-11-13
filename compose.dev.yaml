@@ -7,18 +7,23 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: gymhub_frontend_dev
+    # SCRUM-61: solo en la PC local. Para probar desde otro dispositivo de la LAN:
+    # GYMHUB_BIND=0.0.0.0 (o mejor, usar el túnel: compose.tunnel.yaml).
     ports:
-      - "8080:8080"
+      - "${GYMHUB_BIND:-127.0.0.1}:8080:8080"
     environment:
       NODE_ENV: development
+      # Nginx llega al backend por la red interna de Docker, no por el host.
+      BACKEND_UPSTREAM: http://backend:3000
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: gymhub_backend_dev
+    # SCRUM-61: API directa (Swagger, debugging) solo desde la PC local.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       NODE_ENV: development
       PORT: 3000
