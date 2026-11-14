@@ -40,3 +40,34 @@ Prometheus consulta a node-exporter, cAdvisor, postgres-exporter y blackbox-expo
 ## Seguridad y operación
 
 No subir `.env`, `Authorization`, tokens, capturas de 2FA ni credenciales. El script `GYMHUB_cierre_integral_auto.py` realiza comprobaciones de solo lectura y prepara cambios en otra rama únicamente si confirma una réplica operativa; no ejecuta la prueba de inserción incluida en `database/replication/verify-replication.sh`, no reinicia servicios y no sustituye un ensayo integral de la demo.
+
+## SCRUM-66/67/68 — exporter de réplica independiente
+
+El laboratorio inicializa un **standby externo al Compose del monitoreo**, denominado
+`gymhub-replica-verificada`, en la red privada `proyecto_demo_hia-main_default`.
+El primario existente `demo_hia_db` no se recrea ni se reinicia.
+
+Cuando el standby ya está operativo, el exporter se incorpora **sin puertos publicados**
+con el archivo `infra/monitoring/docker-compose.replica.yml`, siempre junto al
+`docker-compose.yml` original. Debe existir en la misma carpeta un archivo local
+`infra/monitoring/.env.replica` (IGNORADO POR GIT) con las credenciales de
+monitorización autorizadas. **No copiar ese archivo al repositorio ni adjuntarlo**.
+
+Desde `infra/monitoring/`, para reconstruir solamente el exporter en otro entorno
+que tenga la misma red/nombre de réplica:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.replica.yml --env-file .env up -d --no-deps postgres-exporter-replica
+```
+
+Verificar tanto `up{job="postgres-replica"}` como `pg_up{job="postgres-replica"}`
+iguales a 1. El target puede estar UP sin acreditar que el servidor sea standby;
+comprobar `pg_replication_is_replica{job="postgres-replica"}` y
+`pg_stat_replication` desde el primario. La serie `pg_replication_lag_seconds`
+solo se considera disponible si Prometheus devuelve un valor real.
+
+El uso de `changes(container_start_time_seconds)` detecta cambios observados,
+no es un contador fiable de reinicios históricos. Esta variante de laboratorio
+requiere adaptar red/nombres para un equipo diferente; no sustituye un deployment
+reproducible de la réplica real ni una prueba de failover. La prueba end-to-end
+firing→resolved y los paneles SQL lentos siguen sujetos a datos y mantenimiento reales.

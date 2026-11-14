@@ -820,17 +820,30 @@
     },
     {
       "id": 19,
-      "title": "Replicación — pendiente",
-      "type": "text",
+      "title": "Lag de replica PostgreSQL (segundos)",
+      "type": "timeseries",
       "gridPos": {
         "x": 0,
         "y": 58,
         "w": 12,
         "h": 5
       },
-      "options": {
-        "mode": "markdown",
-        "content": "⚠️ **Pendiente de integración:** conectar el exporter de la réplica y medir estado/lag de streaming real. No se demuestra replicación con `pg_up` del primario."
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pg_replication_lag_seconds{job=\"postgres-replica\"}",
+          "legendFormat": "Replica {{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
       }
     },
     {
@@ -847,6 +860,48 @@
         "mode": "markdown",
         "content": "Dashboard local de **GymHub**. Los valores de `node-exporter` representan mayormente la VM Docker Desktop en Mac. Los servicios **no deben exponerse** a Internet. El panel se provisiona desde el repositorio; no contiene credenciales."
       }
+    },
+    {
+      "id": 21,
+      "title": "Replica PostgreSQL UP",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 63,
+        "w": 12,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pg_up{job=\"postgres-replica\"}"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Replica en recovery (1=standby)",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 63,
+        "w": 12,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pg_replication_is_replica{job=\"postgres-replica\"}"
+        }
+      ]
     }
   ]
 }
