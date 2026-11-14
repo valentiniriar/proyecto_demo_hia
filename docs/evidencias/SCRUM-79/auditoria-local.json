@@ -1,0 +1,118 @@
+{
+  "tarea": "SCRUM-79",
+  "generado_en": "2026-11-14 14:02:30 -0300",
+  "alcance": "auditoria automatizada local; no equivale a aceptación integral",
+  "workflow_export_error": null,
+  "workflows_detectados": [
+    {
+      "nombre": "Prueba persistencia SCRUM75",
+      "cantidad_nodos": 1,
+      "activo": false,
+      "disparadores": [
+        "When clicking ‘Execute workflow’"
+      ],
+      "acciones": [],
+      "autenticacion_webhook": false,
+      "error_workflow_asociado": false,
+      "tiene_error_trigger": false,
+      "tiene_wait": false,
+      "nodos_criticos_potenciales": [],
+      "tiene_referencia_credenciales_en_nodos": 0
+    },
+    {
+      "nombre": "SCRUM-76 - Alertmanager a Mantis (base)",
+      "cantidad_nodos": 10,
+      "activo": true,
+      "disparadores": [
+        "When clicking ‘Execute workflow’",
+        "Webhook Alertmanager"
+      ],
+      "acciones": [
+        "HTTP Request",
+        "Validar y deduplicar",
+        "Estado firing?",
+        "Crear incidencia Mantis",
+        "Guardar ID de incidencia",
+        "Agregar nota de resolucion",
+        "Marcar alerta resuelta",
+        "Send an Email"
+      ],
+      "autenticacion_webhook": true,
+      "error_workflow_asociado": true,
+      "tiene_error_trigger": false,
+      "tiene_wait": false,
+      "nodos_criticos_potenciales": [],
+      "tiene_referencia_credenciales_en_nodos": 5
+    },
+    {
+      "nombre": "SCRUM-76 - Manejo de errores",
+      "cantidad_nodos": 2,
+      "activo": true,
+      "disparadores": [
+        "Error Trigger"
+      ],
+      "acciones": [
+        "Send an Email"
+      ],
+      "autenticacion_webhook": false,
+      "error_workflow_asociado": false,
+      "tiene_error_trigger": true,
+      "tiene_wait": false,
+      "nodos_criticos_potenciales": [],
+      "tiene_referencia_credenciales_en_nodos": 1
+    }
+  ],
+  "archivos_json_repo": [
+    {
+      "archivo": "infra/n8n/workflows/SCRUM-76-alertmanager-mantis.json",
+      "nombre": "SCRUM-76 - Alertmanager a Mantis (base)",
+      "cantidad_nodos": 8,
+      "tiene_credenciales_en_export": false
+    },
+    {
+      "archivo": "infra/n8n/workflows/SCRUM-76-manejo-errores.json",
+      "nombre": "SCRUM-76 - Manejo de errores",
+      "cantidad_nodos": 2,
+      "tiene_credenciales_en_export": false
+    },
+    {
+      "archivo": "infra/n8n/workflows/flujo-2-verificacion-backups.json",
+      "nombre": "Flujo 2 - Verificación de Backups y Notificación de Errores",
+      "cantidad_nodos": 6,
+      "tiene_credenciales_en_export": false
+    },
+    {
+      "archivo": "infra/n8n/workflows/flujo-4-eventos-seguridad.json",
+      "nombre": "Flujo 4 - Eventos de seguridad → clasificación → incidencia en Mantis",
+      "cantidad_nodos": 5,
+      "tiene_credenciales_en_export": true
+    }
+  ],
+  "pruebas": {
+    "n8n_http": 200,
+    "mailpit_http": 200,
+    "mantis_http": 200,
+    "webhook_sin_auth_http": 403,
+    "webhook_error_http": 200,
+    "mailpit_correo_error_nuevo": true
+  },
+  "pendientes": [
+    "No se observó nodo Wait/aprobación humana; validar acciones críticas antes de implementar",
+    "Pruebas de fallo controladas de cada flujo que no sea SCRUM-76 (backups/IA) no ejecutadas: evitar operaciones destructivas",
+    "Aprobación humana en acciones críticas: la existencia de Wait no demuestra política completa",
+    "Validar con responsable/riesgos y documentación del resto del equipo"
+  ],
+  "revision_integral": {
+    "inventario_local_total": 3,
+    "flujo_76_activo_verificado": true,
+    "flujo_77_versionado_pero_no_instalado": true,
+    "flujo_78_no_detectado": true,
+    "acciones_criticas_76_detectadas": false,
+    "aprobacion_humana": "politica documentada; validar al incorporar acciones criticas de otros flujos",
+    "hallazgos_estaticos_77": [
+      "Authorization usa $env en un parámetro de nodo; migrar a Credentials y verificar bloqueo de entorno."
+    ],
+    "criterios_integrales_completados": false,
+    "prueba_de_otros_flujos": "no ejecutada porque no estan instalados en esta instancia"
+  }
+}
