@@ -15,7 +15,10 @@
       "name": "Schedule Trigger (04:00 AM)",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [250, 300],
+      "position": [
+        250,
+        300
+      ],
       "id": "node-trigger-schedule"
     },
     {
@@ -25,7 +28,10 @@
       "name": "Leer Status Backup",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [450, 300],
+      "position": [
+        450,
+        300
+      ],
       "id": "node-read-status"
     },
     {
@@ -35,7 +41,10 @@
       "name": "Validar Antiguedad y Estado",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [650, 300],
+      "position": [
+        650,
+        300
+      ],
       "id": "node-validate"
     },
     {
@@ -52,7 +61,10 @@
       "name": "¿Backup Válido?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [850, 300],
+      "position": [
+        850,
+        300
+      ],
       "id": "node-if-valid"
     },
     {
@@ -61,15 +73,6 @@
         "url": "http://mantis:80/api/rest/issues",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "={{ $env.MANTIS_API_TOKEN }}"
-            }
-          ]
-        },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
@@ -95,7 +98,10 @@
       "name": "Crear Incidencia en Mantis",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1100, 420],
+      "position": [
+        1100,
+        420
+      ],
       "id": "node-create-mantis"
     },
     {
@@ -105,7 +111,10 @@
       "name": "Log Éxito",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1100, 200],
+      "position": [
+        1100,
+        200
+      ],
       "id": "node-log-ok"
     }
   ],
