@@ -20,6 +20,10 @@ scrape_configs:
   - job_name: postgres-primary
     static_configs:
       - targets: ['postgres-exporter-primary:9187']
+  # SCRUM-66: exporter readonly del standby existente en red Docker local.
+  - job_name: postgres-replica
+    static_configs:
+      - targets: ['postgres-exporter-replica:9187']
   - job_name: blackbox-exporter
     static_configs:
       - targets: ['blackbox-exporter:9115']
@@ -38,7 +42,6 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: 'blackbox-exporter:9115'
-# Pendiente: agregar scrape de la réplica PostgreSQL cuando exista.
 
   # SCRUM-85: disponibilidad de la URL pública (Cloudflare Tunnel) vista desde afuera.
   # Los targets se cargan desde archivo para no tocar esta config cuando cambia la URL

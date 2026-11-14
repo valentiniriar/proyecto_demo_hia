@@ -38,6 +38,43 @@ groups:
         annotations:
           summary: 'PostgreSQL primario no está disponible'
           description: 'postgres-exporter indica pg_up=0 durante 1 minuto.'
+      # SCRUM-68: solo detecta; nunca ejecuta failover automatico.
+      - alert: GymHubReplicaDesconectada
+        expr: up{job="postgres-replica"} == 0 or absent(up{job="postgres-replica"})
+        for: 2m
+        labels:
+          severity: critical
+          component: database-replica
+        annotations:
+          summary: 'Exporter o nodo de replica PostgreSQL no disponible'
+          description: 'El target de la replica no responde; verificar standby y conectividad.'
+      - alert: GymHubReplicaNoEsStandby
+        expr: pg_replication_is_replica{job="postgres-replica"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: database-replica
+        annotations:
+          summary: 'La instancia monitoreada no se identifica como standby'
+          description: 'Revisar configuracion de replica sin ejecutar promocion automatica.'
+      - alert: GymHubReplicaLagAlto
+        expr: pg_replication_lag_seconds{job="postgres-replica"} > 30
+        for: 3m
+        labels:
+          severity: warning
+          component: database-replica
+        annotations:
+          summary: 'Lag de replica PostgreSQL superior a 30 s'
+          description: 'Umbral conservador del laboratorio; confirmar con pg_stat_replication.'
+      - alert: GymHubReiniciosObservadosCadvisor
+        expr: sum(changes(container_start_time_seconds{job="cadvisor"}[10m])) > 2
+        for: 1m
+        labels:
+          severity: warning
+          component: containers
+        annotations:
+          summary: 'Cambios frecuentes de inicio de contenedores observados por cAdvisor'
+          description: 'Indicador observacional; no reemplaza contador historico de Docker.'
   - name: gymhub-capacity
     interval: 15s
     rules:
