@@ -1,0 +1,10 @@
+# Example to overlay on infra/n8n/docker-compose.yml (not applied automatically).
+services:
+  n8n:
+    networks:
+      - default
+      - tools
+networks:
+  tools:
+    external: true
+    name: gymhub_tools_net
