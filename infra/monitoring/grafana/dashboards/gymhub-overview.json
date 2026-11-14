@@ -761,17 +761,46 @@
     },
     {
       "id": 17,
-      "title": "Reinicios de contenedores — pendiente",
-      "type": "text",
+      "title": "Cambios de inicio cAdvisor (1h) — indicador de reinicios",
+      "type": "timeseries",
       "gridPos": {
         "x": 0,
         "y": 53,
         "w": 12,
         "h": 5
       },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "description": "Indicador observacional, NO contador fiable de todos los reinicios. Se computan cambios de container_start_time_seconds en las series activas de cAdvisor durante 1 hora. Un contenedor reemplazado o una serie perdida puede no contarse. 0 = no se observaron cambios en las series actuales; no demuestra ausencia de reinicios. Validar con docker inspect/RestartCount o instrumentación dedicada antes de cerrar el criterio.",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(changes(container_start_time_seconds{job=\"cadvisor\"}[1h]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "legendFormat": "Cambios observados (1h)",
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
       "options": {
-        "mode": "markdown",
-        "content": "⚠️ **Pendiente:** cAdvisor expone métricas de CPU y memoria, pero no se ha verificado una serie fiable del **contador real de reinicios**. No se debe mostrar un conteo inventado. Añadir una métrica oficial o verificada y evidencia."
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
       }
     },
     {
