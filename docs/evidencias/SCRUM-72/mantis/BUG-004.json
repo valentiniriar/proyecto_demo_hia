@@ -1,0 +1,14 @@
+{
+  "summary": "BUG-004: Dependencias vulnerables reportadas por npm audit (12 en backend, 47 en frontend)",
+  "category": "Seguridad",
+  "severity": "major",
+  "priority": "high",
+  "description": "npm audit reportaba 1 crítica y 5 altas en el backend, y 3 críticas y 18 altas en el frontend.\n\nRegistrada en el relevamiento de incidencias de SCRUM-71 (docs/SCRUM-71-incidencias-mantis.md). Reportó: Francisco Paredes. Responsable: Francisco Paredes.",
+  "steps_to_reproduce": "cd backend && npm audit; cd frontend && npm audit",
+  "additional_information": "Jira: SCRUM-64 · PR: #4",
+  "tags": [
+    "SCRUM-64",
+    "SCRUM-71",
+    "SCRUM-72"
+  ]
+}

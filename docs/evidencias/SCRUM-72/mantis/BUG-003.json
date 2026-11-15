@@ -1,0 +1,14 @@
+{
+  "summary": "BUG-003: Consultas N+1 y conteos en memoria en Sequelize (dashboard y listado de socios)",
+  "category": "Rendimiento",
+  "severity": "major",
+  "priority": "high",
+  "description": "El dashboard cargaba todos los usuarios de cada rol para contarlos en JavaScript y el listado de socios hacía dos consultas en lugar de un JOIN.\n\nRegistrada en el relevamiento de incidencias de SCRUM-71 (docs/SCRUM-71-incidencias-mantis.md). Reportó: Enzo Villagrán. Responsable: Tiziano Gallo.",
+  "steps_to_reproduce": "GET /api/dashboard/stats y GET /api/usuarios/socios/list con muchos registros",
+  "additional_information": "Jira: SCRUM-42 · PR: #9",
+  "tags": [
+    "SCRUM-42",
+    "SCRUM-71",
+    "SCRUM-72"
+  ]
+}

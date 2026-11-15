@@ -1,0 +1,41 @@
+== Preparación (IP de origen simulada por X-Forwarded-For para no mezclar rate limits)
+  tokens admin/socio/entrenador obtenidos
+  víctima A id=8 cuota impaga tarifaId=7 · víctima B id=9 cuota impaga tarifaId=8
+
+== 1. Inyección SQL
+  ✔ login con email "' OR '1'='1" (rechazado por validación)                      esperado 422, obtuvo 422
+  ✔ login con email "admin@demo.com'--" (rechazado por validación)                esperado 422, obtuvo 422
+  ✔ login con password "' OR 1=1--" (no autentica)                                 esperado 401, obtuvo 401
+  ✔ GET /usuarios/:dni con "1' OR '1'='1" (sin fuga de datos)                      esperado 404, obtuvo 404
+  ✔ GET /tarifas/impagas/:id con "1 OR 1=1" (sin fuga)                             esperado 400, obtuvo 400
+  nutrición con UNION SELECT respondió 200 (503 = Open Food Facts no disponible)
+  ✔ nutrición ?q=' UNION SELECT ... (sin error interno 500)                       esperado no, obtuvo no
+
+== 2. Fuerza bruta en login (rate limit SCRUM-65)
+  7 intentos fallidos desde la misma IP: 401 401 401 401 401 429 429 
+  ✔ el 6.º intento fallido se bloquea                                             esperado 429, obtuvo 429
+  ✔ otra IP no queda bloqueada                                                     esperado 401, obtuvo 401
+
+== 3. Escalamiento de rol (socio llamando endpoints de admin/entrenador)
+  ✔ socio GET /usuarios                                                            esperado 403, obtuvo 403
+  ✔ socio GET /usuarios/10000001 (DNI admin)                                       esperado 403, obtuvo 403
+  ✔ socio DELETE /usuarios/10000001                                                esperado 403, obtuvo 403
+  ✔ socio GET /pagos (todos los pagos)                                             esperado 403, obtuvo 403
+  ✔ socio GET /tarifas (todas las cuotas)                                          esperado 403, obtuvo 403
+  ✔ socio POST /tarifas                                                            esperado 403, obtuvo 403
+  ✔ socio POST /suscripciones                                                      esperado 403, obtuvo 403
+  ✔ socio GET /dashboard                                                           esperado 403, obtuvo 403
+  ✔ entrenador DELETE /usuarios/10000003                                           esperado 403, obtuvo 403
+  ✔ JWT con payload alterado (id=1) y firma vieja                                  esperado 401, obtuvo 401
+  ✔ JWT con alg=none                                                               esperado 401, obtuvo 401
+
+== 4. IDOR (acceso a datos de otro socio)
+  cuotas que ve el socio demo en /mis-tarifas: [2,1] (la de la víctima es 7)
+  ✔ /mis-tarifas no incluye la cuota de la víctima                                esperado no, obtuvo no
+  ✔ socio GET /tarifas/impagas/<id víctima>                                       esperado 403, obtuvo 403
+  la víctima B marca su propia cuota como pagada sin pasar por MercadoPago: {"status":"0","msg":"Falta el identificador del pago de MercadoPago o no es válido."} HTTP400
+  ✔ socio no puede marcar su cuota como paga sin un pago verificado                esperado 400, obtuvo 400
+  socio demo registra un pago de $1 para la cuota de la víctima A: {"status":"0","msg":"La cuota no pertenece al usuario autenticado."} HTTP403
+  ✔ socio no puede pagar (marcar) la cuota de otro socio                           esperado 403, obtuvo 403
+
+== Resultado: 23 OK, 0 con hallazgo

@@ -15,6 +15,8 @@ app.use(security.helmetMiddleware());
 app.use(security.corsMiddleware());
 app.use('/api', security.globalRateLimit());
 app.use('/api/auth', security.authRateLimit());
+// Eventos de seguridad hacia n8n: login fallido y login de admin (SCRUM-84).
+app.use('/api/auth', require('./src/middlewares/security-events.middleware').auditarAuth);
 app.use(express.json({ limit: security.bodyLimit() }));
 
 // Salud del servicio: lo usan el HEALTHCHECK de Docker, el deploy del CI/CD y el monitoreo.

@@ -1,0 +1,14 @@
+{
+  "summary": "Cabeceras de seguridad incompletas en el Nginx del frontend (OWASP ZAP baseline)",
+  "category": "Seguridad",
+  "severity": "minor",
+  "priority": "high",
+  "description": "ZAP baseline (0 FAIL, 11 WARN): versión de Nginx expuesta en \"Server\" (10036), sin Permissions-Policy (10063), CSP con comodín \"https:\" en script-src/connect-src/frame-src (10055) y sin aislamiento COOP/CORP (90004).\n\nDetectado en las pruebas de seguridad controladas de SCRUM-81 (entorno local de prueba). Script: docs/evidencias/SCRUM-81/pruebas-seguridad.sh",
+  "steps_to_reproduce": "docker run --rm --network gymhub_frontend_net ghcr.io/zaproxy/zaproxy:2.16.1 zap-baseline.py -t http://frontend:8080",
+  "additional_information": "Jira: SCRUM-81 · Reporte: docs/evidencias/SCRUM-81/zap-antes.html",
+  "tags": [
+    "SCRUM-81",
+    "seguridad",
+    "zap"
+  ]
+}

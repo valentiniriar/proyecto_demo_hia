@@ -6,3 +6,15 @@ modules:
       method: GET
       valid_status_codes: [200]
       preferred_ip_protocol: ip4
+  # SCRUM-85: URL pública por HTTPS. Falla si no es HTTPS o si el certificado no valida.
+  https_publico:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      fail_if_not_ssl: true
+      follow_redirects: true
+      preferred_ip_protocol: ip4
+      tls_config:
+        insecure_skip_verify: false

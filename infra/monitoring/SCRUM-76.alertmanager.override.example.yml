@@ -1,0 +1,18 @@
+# Example to overlay on infra/monitoring/docker-compose.yml (not applied automatically).
+# Set SCRUM76_WEBHOOK_TOKEN_FILE to the existing absolute local secret path.
+services:
+  alertmanager:
+    networks:
+      - monitoring
+      - tools
+    volumes:
+      - ./alertmanager/alertmanager.scrum76.example.yml:/etc/alertmanager/alertmanager.yml:ro
+    secrets:
+      - scrum76_webhook_token
+networks:
+  tools:
+    external: true
+    name: gymhub_tools_net
+secrets:
+  scrum76_webhook_token:
+    file: ${SCRUM76_WEBHOOK_TOKEN_FILE:?Definir ruta absoluta al archivo de token existente}

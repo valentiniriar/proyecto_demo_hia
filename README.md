@@ -70,6 +70,23 @@ docker compose -f compose.yaml -f compose.dev.yaml up -d
 - **PostgreSQL Primario:** `localhost:5433` (usuario: `demo_hia`, clave: `demo_hia_pass`, base: `demo_hia`)
 - **pgAdmin 4 (Administración BD):** [http://localhost:5050](http://localhost:5050) (usuario: `admin@gymhub.com`, clave: `admin1234`)
 
+### Demo en clase (en 3 comandos)
+
+```bash
+# 1. App completa en la PC → http://localhost:8080 (usuarios en la sección 4)
+docker compose -f compose.yaml -f compose.dev.yaml up -d --build
+
+# 2. Publicarla en Internet con HTTPS (Cloudflare Tunnel, sin cuenta) → muestra la URL para el aula
+bash infra/cloudflared/demo-publica.sh
+#    al terminar:  bash infra/cloudflared/demo-publica.sh --detener
+
+# 3. (opcional) Herramientas para mostrar: Mantis http://localhost:8990 · Grafana http://localhost:3001
+bash infra/mantis/setup.sh
+(cd infra/monitoring && docker compose up -d)
+```
+
+Plan B si falla Internet o el túnel: mostrar la app en `http://localhost:8080` (ver `docs/SCRUM-85-disponibilidad-y-riesgos.md`, sección 6). Documentos de referencia para la defensa: publicación (`docs/10-publicacion-internet.md`), incidencias (`docs/12-gestion-incidencias.md`) y seguridad (`docs/14-informe-seguridad.md`).
+
 ### 3.2 Modo Clúster con Alta Disponibilidad y Replicación (E06)
 Para desplegar el clúster completo con nodo réplica en Hot Standby por streaming físico:
 
@@ -89,13 +106,13 @@ docker compose -f compose.yaml -f compose.prod.yaml --profile prod up -d
 
 ## 4. Usuarios Demo Pre-cargados
 
-El script inicial `database/02_seed.sql` genera automáticamente usuarios con distintos roles para pruebas (contraseña para todos: `admin123` o `123456` según el rol):
+El script inicial `database/02_seed.sql` genera automáticamente usuarios con distintos roles para pruebas (**contraseña de los tres: `demo1234`**; solo desarrollo, cambiarla antes de dejar la app publicada mucho tiempo):
 
 | Rol | Email | Uso / Permisos |
 |---|---|---|
-| **Administrador** | `admin@gymhub.com` | Gestión de socios, cobros, reportes globales y usuarios. |
-| **Entrenador** | `entrenador@gymhub.com` | Creación y asignación de rutinas, generación asistida con IA. |
-| **Socio** | `socio@gymhub.com` | Visualización de rutina personal, estado de cuota y pagos. |
+| **Administrador** | `admin@demo.com` | Gestión de socios, cobros, reportes globales y usuarios. |
+| **Entrenador** | `entrenador@demo.com` | Creación y asignación de rutinas, generación asistida con IA. |
+| **Socio** | `socio@demo.com` | Visualización de rutina personal, estado de cuota y pagos. |
 
 ---
 
@@ -107,7 +124,7 @@ Para ejecutar la suite de calidad en el backend:
 cd backend
 npm install
 npm run lint         # Análisis estático de código con ESLint
-npm test:ci          # Smoke tests unitarios y de integración de endpoints críticos
+npm run test:ci      # Smoke tests unitarios y de integración de endpoints críticos
 ```
 
 ---
@@ -118,7 +135,7 @@ npm test:ci          # Smoke tests unitarios y de integración de endpoints crí
    - La base de datos de GymHub en desarrollo escucha en el puerto host `5433` precisamente para evitar colisiones con PostgreSQL locales.
 2. **Reiniciar la base de datos desde cero:**
    ```bash
-   docker compose down -v
+   docker compose -f compose.yaml -f compose.dev.yaml down -v
    docker compose -f compose.yaml -f compose.dev.yaml up -d
    ```
 3. **Verificar estado de salud de la API y conexión a BD:**

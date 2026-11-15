@@ -1,0 +1,14 @@
+{
+  "summary": "BUG-009: No había restauración automatizada e idempotente de backups de PostgreSQL",
+  "category": "Base de datos",
+  "severity": "major",
+  "priority": "high",
+  "description": "No existía un procedimiento probado para restaurar un backup en una base limpia ni pruebas de persistencia.\n\nRegistrada en el relevamiento de incidencias de SCRUM-71 (docs/SCRUM-71-incidencias-mantis.md). Reportó: Valentín Lozano. Responsable: Valentín Lozano.",
+  "steps_to_reproduce": "Intentar restaurar un dump sin procedimiento",
+  "additional_information": "Jira: SCRUM-38 · PR: #17",
+  "tags": [
+    "SCRUM-38",
+    "SCRUM-71",
+    "SCRUM-72"
+  ]
+}

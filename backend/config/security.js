@@ -72,7 +72,13 @@ const helmetMiddleware = () => helmet({
     crossOriginResourcePolicy: { policy: 'same-site' },
 });
 
-const respuesta429 = (msg) => (req, res) => res.status(429).json({ status: '0', msg });
+const { emitirEventoSeguridad } = require('../src/services/security-events');
+
+// 429 en el formato de la API + evento de seguridad para n8n (SCRUM-84).
+const respuesta429 = (msg, limite) => (req, res) => {
+    emitirEventoSeguridad('rate_limit', req, { status: 429, limite });
+    return res.status(429).json({ status: '0', msg });
+};
 
 // Fuerza bruta: intentos a /api/auth/* (login y login con Google) por IP.
 // Solo cuentan los intentos fallidos (status >= 400): así un aula entera detrás de la
@@ -83,7 +89,7 @@ const authRateLimit = () => rateLimit({
     skipSuccessfulRequests: true,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    handler: respuesta429('Demasiados intentos de inicio de sesión. Esperá un minuto y volvé a intentar.'),
+    handler: respuesta429('Demasiados intentos de inicio de sesión. Esperá un minuto y volvé a intentar.', 'auth'),
 });
 
 // Límite global por IP para toda la API (abuso / scraping / DoS básico).
@@ -94,7 +100,7 @@ const globalRateLimit = () => rateLimit({
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     skip: (req) => req.path === '/health',
-    handler: respuesta429('Demasiadas solicitudes. Intentá de nuevo en unos minutos.'),
+    handler: respuesta429('Demasiadas solicitudes. Intentá de nuevo en unos minutos.', 'global'),
 });
 
 // Límite de tamaño del body JSON (evita payloads gigantes). Ej: "100kb", "1mb".

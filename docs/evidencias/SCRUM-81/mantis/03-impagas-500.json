@@ -1,0 +1,13 @@
+{
+  "summary": "GET /api/tarifas/impagas/:usuarioId devuelve 500 ante un id no numérico",
+  "category": "Backend",
+  "severity": "minor",
+  "priority": "normal",
+  "description": "Con un parámetro como \"1 OR 1=1\" Postgres rechaza la conversión a entero y la API responde 500 (error interno). No hay fuga de datos (Sequelize parametriza la consulta), pero la entrada no se valida.\n\nDetectado en las pruebas de seguridad controladas de SCRUM-81 (entorno local de prueba). Script: docs/evidencias/SCRUM-81/pruebas-seguridad.sh",
+  "steps_to_reproduce": "1. Iniciar sesión como admin.\n2. GET /api/tarifas/impagas/1%20OR%201=1\n3. Respuesta: 500.",
+  "additional_information": "Jira: SCRUM-81",
+  "tags": [
+    "SCRUM-81",
+    "validacion"
+  ]
+}
