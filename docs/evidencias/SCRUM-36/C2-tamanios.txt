@@ -1,0 +1,35 @@
+Timing is on.
+   base   | tamanio |   bytes    
+----------+---------+------------
+ demo_hia | 5194 MB | 5446425623
+
+Time: 34.499 ms
+       tabla       | filas_estimadas |  datos  | indices |  total  | pct_base 
+-------------------+-----------------+---------+---------+---------+----------
+ usuarios          | 6,000,278       | 1049 MB | 630 MB  | 1679 MB |     32.3
+ rutinas           | 6,000,260       | 821 MB  | 129 MB  | 950 MB  |     18.3
+ pagos             | 5,999,980       | 533 MB  | 129 MB  | 661 MB  |     12.7
+ suscripciones     | 6,000,250       | 529 MB  | 129 MB  | 658 MB  |     12.7
+ tarifas           | 5,999,978       | 438 MB  | 129 MB  | 567 MB  |     10.9
+ usuario_roles     | 6,000,000       | 207 MB  | 129 MB  | 336 MB  |      6.5
+ rutina_ejercicios | 6,000,000       | 207 MB  | 129 MB  | 336 MB  |      6.5
+ ejercicios        | 200             | 72 kB   | 16 kB   | 88 kB   |      0.0
+ roles             | 3               | 40 kB   | 32 kB   | 72 kB   |      0.0
+
+Time: 66.692 ms
+       tabla       |         indice         |  tipo  |                                                  definicion                                                  | tamanio 
+-------------------+------------------------+--------+--------------------------------------------------------------------------------------------------------------+---------
+ usuarios          | usuarios_email_key     | UNIQUE | CREATE UNIQUE INDEX usuarios_email_key ON public.usuarios USING btree (email)                                | 321 MB
+ usuarios          | usuarios_dni_key       | UNIQUE | CREATE UNIQUE INDEX usuarios_dni_key ON public.usuarios USING btree (dni)                                    | 181 MB
+ pagos             | pagos_pkey             | PK     | CREATE UNIQUE INDEX pagos_pkey ON public.pagos USING btree (id)                                              | 129 MB
+ usuarios          | usuarios_pkey          | PK     | CREATE UNIQUE INDEX usuarios_pkey ON public.usuarios USING btree (id)                                        | 129 MB
+ rutina_ejercicios | rutina_ejercicios_pkey | PK     | CREATE UNIQUE INDEX rutina_ejercicios_pkey ON public.rutina_ejercicios USING btree (id_rutina, id_ejercicio) | 129 MB
+ suscripciones     | suscripciones_pkey     | PK     | CREATE UNIQUE INDEX suscripciones_pkey ON public.suscripciones USING btree (id)                              | 129 MB
+ tarifas           | tarifas_pkey           | PK     | CREATE UNIQUE INDEX tarifas_pkey ON public.tarifas USING btree (id)                                          | 129 MB
+ usuario_roles     | usuario_roles_pkey     | PK     | CREATE UNIQUE INDEX usuario_roles_pkey ON public.usuario_roles USING btree (id_usuario, id_rol)              | 129 MB
+ rutinas           | rutinas_pkey           | PK     | CREATE UNIQUE INDEX rutinas_pkey ON public.rutinas USING btree (id)                                          | 129 MB
+ ejercicios        | ejercicios_pkey        | PK     | CREATE UNIQUE INDEX ejercicios_pkey ON public.ejercicios USING btree (id)                                    | 16 kB
+ roles             | roles_nombre_key       | UNIQUE | CREATE UNIQUE INDEX roles_nombre_key ON public.roles USING btree (nombre)                                    | 16 kB
+ roles             | roles_pkey             | PK     | CREATE UNIQUE INDEX roles_pkey ON public.roles USING btree (id)                                              | 16 kB
+
+Time: 26.273 ms

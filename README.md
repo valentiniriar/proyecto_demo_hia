@@ -151,6 +151,17 @@ Cargados por `database/02_seed.sql` (**solo desarrollo**). Contraseña de los tr
 | entrenador | entrenador@demo.com |
 | socio | socio@demo.com |
 
+## Dataset de prueba (SCRUM-35)
+
+Hay un dataset masivo para pruebas de rendimiento: **6.000.000 filas** en cada tabla de datos, `ejercicios` con 200 (catálogo) y `roles` con 3. Respeta todas las FK y es reproducible. Necesita unos 10 GB libres y entre 15 y 30 minutos de carga. Detalle, justificación y advertencias en [`docs/SCRUM-35-dataset-6m.md`](docs/SCRUM-35-dataset-6m.md).
+
+```bash
+docker compose --profile dev down -v && docker compose --profile dev up -d   # base limpia
+./database/dataset/cargar.sh                                                 # carga y verificación
+```
+
+Para volver a la base chica, repetir la primera línea.
+
 ## Modelo de datos
 
 ```mermaid

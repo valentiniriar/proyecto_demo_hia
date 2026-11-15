@@ -1,0 +1,15 @@
+Timing is on.
+SET
+Time: 2.878 ms
+                     fk                      | huerfanos 
+---------------------------------------------+-----------
+ usuario_roles.id_usuario → usuarios         |         0
+ usuario_roles.id_rol → roles                |         0
+ rutinas.usuarioId → usuarios                |         0
+ rutina_ejercicios.id_rutina → rutinas       |         0
+ rutina_ejercicios.id_ejercicio → ejercicios |         0
+ suscripciones.usuarioId → usuarios          |         0
+ tarifas.suscripcionId → suscripciones       |         0
+ pagos.tarifaId → tarifas                    |         0
+
+Time: 101171.725 ms (01:41.172)

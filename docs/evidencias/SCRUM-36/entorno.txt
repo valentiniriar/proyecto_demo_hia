@@ -1,0 +1,13 @@
+Fecha: 2026-11-13 14:38:33 -0300
+Rama: feature/SCRUM-35-dataset-6m @ 73a846d
+Docker 29.9.2 | CPUs: 4 | RAM Docker: 3769765888 bytes | Docker Desktop | kernel 6.6.114.1-microsoft-standard-WSL2
+PostgreSQL 16.15 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+maintenance_work_mem = 65536kB
+max_parallel_maintenance_workers = 2
+max_parallel_workers = 8
+max_wal_size = 1024MB
+shared_buffers = 163848kB
+synchronous_commit = on
+wal_level = replica
+work_mem = 4096kB
+Disco C: libre: 19G

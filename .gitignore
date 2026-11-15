@@ -18,6 +18,8 @@ cloudflared/*.json
 # de database/ (esquema y seed demo) se excluyen explícitamente de esta regla.
 *.sql
 !database/*.sql
+# Para permitir el dataset de 6m 
+!database/dataset/*.sql
 *.sql.gz
 *.dump
 *.backup
