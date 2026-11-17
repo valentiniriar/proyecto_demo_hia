@@ -1,0 +1,49 @@
+== socios activos
+Time: 26598.067 ms (00:26.598)
+Time: 12906.050 ms (00:12.906)
+Time: 8684.877 ms (00:08.685)
+== stats dashboard
+Time: 766.012 ms
+Time: 326.148 ms
+Time: 5115.357 ms (00:05.115)
+Time: 3.067 ms
+Time: 3408.995 ms (00:03.409)
+Time: 390.245 ms
+Time: 322.628 ms
+Time: 1556.982 ms (00:01.557)
+Time: 0.352 ms
+Time: 486.571 ms
+Time: 479.077 ms
+Time: 393.168 ms
+Time: 1406.022 ms (00:01.406)
+Time: 0.407 ms
+Time: 293.658 ms
+Time: 334.040 ms
+Time: 299.825 ms
+Time: 1391.650 ms (00:01.392)
+Time: 0.325 ms
+Time: 289.820 ms
+Time: 336.982 ms
+Time: 323.765 ms
+Time: 1453.103 ms (00:01.453)
+Time: 0.327 ms
+Time: 291.902 ms
+== ejercicios ILIKE
+Time: 39.464 ms
+Time: 0.755 ms
+Time: 1.481 ms
+Time: 0.835 ms
+Time: 0.714 ms
+Time: 0.726 ms
+Time: 0.911 ms
+Time: 0.848 ms
+Time: 2.875 ms
+Time: 1.355 ms
+== pagos por rango de fechas
+Time: 6687.642 ms (00:06.688)
+Time: 2560.232 ms (00:02.560)
+Time: 2656.483 ms (00:02.656)
+Time: 2122.518 ms (00:02.123)
+Time: 3014.227 ms (00:03.014)
+Time: 2931.310 ms (00:02.931)
+SCRUM-39: consultas_psql.sql terminado

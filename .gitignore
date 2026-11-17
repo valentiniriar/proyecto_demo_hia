@@ -29,6 +29,8 @@ dumps/
 
 # Logs / sistema / editores
 *.log
+# SCRUM-39: el log de PostgreSQL es la entrada del reporte pgBadger (evidencia)
+!docs/evidencias/SCRUM-39/*.log
 .DS_Store
 Thumbs.db
 .idea/

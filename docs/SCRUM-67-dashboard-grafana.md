@@ -13,7 +13,7 @@
 
 ## Límites y métricas pendientes
 - **Reinicios de contenedores**: aún no hay contador fiable verificado.
-- **Consultas SQL lentas**: no hay integración `pg_stat_statements` verificada.
+- **Consultas SQL lentas**: `pg_stat_statements` ya está habilitado y analizado con pgBadger (SCRUM-39), pero todavía no se exporta a Prometheus, así que no hay panel.
 - **Replicación**: exporter de réplica y lag pendientes de integración y datos reales.
 - Algunas métricas de `node-exporter` o `postgres-exporter` pueden dar "No data" por permisos o montajes. Verificar antes de afirmar que están cubiertas.
 

@@ -1,0 +1,374 @@
+######## C1 mis-rutinas (rutina.controller.js getMisRutinas)
+                                                                                          QUERY PLAN                                                                                           
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather  (cost=1000.58..137313.47 rows=2 width=217) (actual time=2915.960..6281.435 rows=1 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   Buffers: shared hit=3 read=105063
+   I/O Timings: shared read=17256.404
+   ->  Nested Loop Left Join  (cost=0.58..136313.27 rows=1 width=217) (actual time=5013.209..6120.935 rows=0 loops=3)
+         Buffers: shared hit=3 read=105063
+         I/O Timings: shared read=17256.404
+         ->  Parallel Seq Scan on rutinas "Rutina"  (cost=0.00..136311.35 rows=1 width=104) (actual time=5012.419..6120.141 rows=0 loops=3)
+               Filter: ("usuarioId" = 21037)
+               Rows Removed by Filter: 2000000
+               Buffers: shared read=105060
+               I/O Timings: shared read=17254.717
+         ->  Nested Loop  (cost=0.58..1.89 rows=2 width=117) (actual time=2.319..2.324 rows=1 loops=1)
+               Buffers: shared hit=3 read=3
+               I/O Timings: shared read=1.686
+               ->  Index Only Scan using rutina_ejercicios_pkey on rutina_ejercicios "ejercicios->RutinaEjercicio"  (cost=0.43..1.57 rows=2 width=8) (actual time=1.843..1.846 rows=1 loops=1)
+                     Index Cond: (id_rutina = "Rutina".id)
+                     Heap Fetches: 0
+                     Buffers: shared hit=2 read=2
+                     I/O Timings: shared read=1.504
+               ->  Index Scan using ejercicios_pkey on ejercicios  (cost=0.14..0.16 rows=1 width=113) (actual time=0.324..0.324 rows=1 loops=1)
+                     Index Cond: (id = "ejercicios->RutinaEjercicio".id_ejercicio)
+                     Buffers: shared hit=1 read=1
+                     I/O Timings: shared read=0.182
+ Planning:
+   Buffers: shared hit=255 read=23
+   I/O Timings: shared read=15.149
+ Planning Time: 23.246 ms
+ JIT:
+   Functions: 33
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 72.207 ms, Inlining 0.000 ms, Optimization 9.682 ms, Emission 167.231 ms, Total 249.120 ms
+ Execution Time: 6398.922 ms
+(34 rows)
+
+######## C2 mis-tarifas (tarifa.controller.js getMisTarifas)
+                                                                          QUERY PLAN                                                                           
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=187606.91..187606.91 rows=2 width=70) (actual time=5411.744..5461.567 rows=1 loops=1)
+   Sort Key: "Tarifa".anio DESC, "Tarifa".mes DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=49113 read=74799
+   I/O Timings: shared read=9202.700
+   ->  Gather  (cost=99969.31..187606.90 rows=2 width=70) (actual time=5411.199..5461.274 rows=1 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=49110 read=74799
+         I/O Timings: shared read=9202.700
+         ->  Parallel Hash Join  (cost=98969.31..186606.70 rows=1 width=70) (actual time=4723.153..5363.648 rows=0 loops=3)
+               Hash Cond: ("Tarifa"."suscripcionId" = suscripcion.id)
+               Buffers: shared hit=49110 read=74799
+               I/O Timings: shared read=9202.700
+               ->  Parallel Seq Scan on tarifas "Tarifa"  (cost=0.00..81074.91 rows=2499991 width=38) (actual time=0.259..1512.135 rows=2000000 loops=3)
+                     Buffers: shared hit=48994 read=7081
+                     I/O Timings: shared read=1443.876
+               ->  Parallel Hash  (cost=98969.30..98969.30 rows=1 width=32) (actual time=2942.656..2942.657 rows=1 loops=3)
+                     Buckets: 1024  Batches: 1  Memory Usage: 40kB
+                     Buffers: shared read=67718
+                     I/O Timings: shared read=7758.824
+                     ->  Parallel Seq Scan on suscripciones suscripcion  (cost=0.00..98969.30 rows=1 width=32) (actual time=2809.873..2942.439 rows=1 loops=3)
+                           Filter: ("usuarioId" = 21037)
+                           Rows Removed by Filter: 1999999
+                           Buffers: shared read=67718
+                           I/O Timings: shared read=7758.824
+ Planning:
+   Buffers: shared hit=92 read=10
+   I/O Timings: shared read=7.449
+ Planning Time: 10.297 ms
+ JIT:
+   Functions: 39
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 12.526 ms, Inlining 0.000 ms, Optimization 5.275 ms, Emission 145.548 ms, Total 163.349 ms
+ Execution Time: 5463.843 ms
+(35 rows)
+
+######## C3 impagas por usuario (tarifa.controller.js getCuotasImpagasPorUsuario)
+                                                                            QUERY PLAN                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=182278.27..182278.28 rows=1 width=121) (actual time=790.411..842.982 rows=1 loops=1)
+   Sort Key: "Tarifa".anio, "Tarifa".mes
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=49302 read=74611
+   I/O Timings: shared read=501.522
+   ->  Nested Loop Left Join  (cost=99969.75..182278.26 rows=1 width=121) (actual time=556.647..842.952 rows=1 loops=1)
+         Buffers: shared hit=49302 read=74611
+         I/O Timings: shared read=501.522
+         ->  Gather  (cost=99969.31..182275.60 rows=1 width=74) (actual time=517.798..804.097 rows=1 loops=1)
+               Workers Planned: 2
+               Workers Launched: 2
+               Buffers: shared hit=49302 read=74607
+               I/O Timings: shared read=462.843
+               ->  Parallel Hash Join  (cost=98969.31..181275.50 rows=1 width=74) (actual time=668.880..746.660 rows=0 loops=3)
+                     Hash Cond: ("Tarifa"."suscripcionId" = suscripcion.id)
+                     Buffers: shared hit=49302 read=74607
+                     I/O Timings: shared read=462.843
+                     ->  Parallel Seq Scan on tarifas "Tarifa"  (cost=0.00..81074.91 rows=469058 width=38) (actual time=0.058..275.481 rows=247986 loops=3)
+                           Filter: ((NOT pagado) AND activo)
+                           Rows Removed by Filter: 1752014
+                           Buffers: shared hit=49090 read=6985
+                           I/O Timings: shared read=52.704
+                     ->  Parallel Hash  (cost=98969.30..98969.30 rows=1 width=36) (actual time=439.887..439.888 rows=1 loops=3)
+                           Buckets: 1024  Batches: 1  Memory Usage: 72kB
+                           Buffers: shared hit=96 read=67622
+                           I/O Timings: shared read=410.139
+                           ->  Parallel Seq Scan on suscripciones suscripcion  (cost=0.00..98969.30 rows=1 width=36) (actual time=393.373..439.772 rows=1 loops=3)
+                                 Filter: ("usuarioId" = 21037)
+                                 Rows Removed by Filter: 1999999
+                                 Buffers: shared hit=96 read=67622
+                                 I/O Timings: shared read=410.139
+         ->  Index Scan using usuarios_pkey on usuarios "suscripcion->usuario"  (cost=0.43..2.65 rows=1 width=51) (actual time=38.801..38.802 rows=1 loops=1)
+               Index Cond: (id = 21037)
+               Buffers: shared read=4
+               I/O Timings: shared read=38.678
+ Planning:
+   Buffers: shared hit=90 read=7
+   I/O Timings: shared read=6.264
+ Planning Time: 8.819 ms
+ JIT:
+   Functions: 49
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 6.437 ms, Inlining 0.000 ms, Optimization 3.642 ms, Emission 155.987 ms, Total 166.066 ms
+ Execution Time: 844.983 ms
+(44 rows)
+
+######## C4 socios activos (usuario.controller.js getSocios)
+                                                                                        QUERY PLAN                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=11.85..469847.65 rows=1848333 width=83) (actual time=28.555..32787.926 rows=5433201 loops=1)
+   Hash Cond: ("roles->UsuarioRol".id_rol = roles.id)
+   Buffers: shared hit=396 read=167002
+   I/O Timings: shared read=28412.592
+   ->  Merge Join  (cost=10.80..434728.27 rows=5545000 width=87) (actual time=1.099..31952.374 rows=5521613 loops=1)
+         Merge Cond: ("Usuario".id = "roles->UsuarioRol".id_usuario)
+         Buffers: shared hit=396 read=167001
+         I/O Timings: shared read=28412.009
+         ->  Index Scan using usuarios_pkey on usuarios "Usuario"  (cost=0.43..242321.10 rows=5545257 width=83) (actual time=1.001..28252.384 rows=5521613 loops=1)
+               Filter: estado
+               Rows Removed by Filter: 478387
+               Buffers: shared hit=392 read=150608
+               I/O Timings: shared read=26729.219
+         ->  Index Only Scan using usuario_roles_pkey on usuario_roles "roles->UsuarioRol"  (cost=0.43..108099.83 rows=6000000 width=8) (actual time=0.083..2400.852 rows=6000000 loops=1)
+               Heap Fetches: 0
+               Buffers: shared hit=4 read=16393
+               I/O Timings: shared read=1682.790
+   ->  Hash  (cost=1.04..1.04 rows=1 width=4) (actual time=27.421..27.422 rows=1 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 9kB
+         Buffers: shared read=1
+         I/O Timings: shared read=0.583
+         ->  Seq Scan on roles  (cost=0.00..1.04 rows=1 width=4) (actual time=27.398..27.400 rows=1 loops=1)
+               Filter: ((nombre)::text = 'socio'::text)
+               Rows Removed by Filter: 2
+               Buffers: shared read=1
+               I/O Timings: shared read=0.583
+ Planning:
+   Buffers: shared hit=76 read=16
+   I/O Timings: shared read=11.174
+ Planning Time: 13.906 ms
+ JIT:
+   Functions: 16
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 1.213 ms, Inlining 0.000 ms, Optimization 0.486 ms, Emission 26.327 ms, Total 28.027 ms
+ Execution Time: 32984.691 ms
+(35 rows)
+
+######## C5 dashboard: tarifas pagadas (suma en Node)
+                                                          QUERY PLAN                                                          
+------------------------------------------------------------------------------------------------------------------------------
+ Seq Scan on tarifas "Tarifa"  (cost=0.00..116074.78 rows=4405241 width=5) (actual time=4.568..8534.978 rows=4800000 loops=1)
+   Filter: (pagado AND activo)
+   Rows Removed by Filter: 1200000
+   Buffers: shared read=56075
+   I/O Timings: shared read=7834.969
+ Planning Time: 0.069 ms
+ JIT:
+   Functions: 4
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 0.361 ms, Inlining 0.000 ms, Optimization 0.216 ms, Emission 3.853 ms, Total 4.430 ms
+ Execution Time: 8696.637 ms
+(11 rows)
+
+######## C6 dashboard: usuarios por estado (2 COUNT)
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize Aggregate  (cost=165994.68..165994.69 rows=1 width=8) (actual time=7298.581..7348.980 rows=1 loops=1)
+   Buffers: shared hit=52467 read=81750
+   I/O Timings: shared read=20104.037
+   ->  Gather  (cost=165994.47..165994.68 rows=2 width=8) (actual time=7297.517..7348.902 rows=3 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=52467 read=81750
+         I/O Timings: shared read=20104.037
+         ->  Partial Aggregate  (cost=164994.47..164994.48 rows=1 width=8) (actual time=7173.385..7173.915 rows=1 loops=3)
+               Buffers: shared hit=52467 read=81750
+               I/O Timings: shared read=20104.037
+               ->  Parallel Seq Scan on usuarios "Usuario"  (cost=0.00..159218.16 rows=2310524 width=0) (actual time=21.488..7079.722 rows=1840538 loops=3)
+                     Filter: estado
+                     Rows Removed by Filter: 159462
+                     Buffers: shared hit=52467 read=81750
+                     I/O Timings: shared read=20104.037
+ Planning:
+   Buffers: shared hit=2 read=4
+   I/O Timings: shared read=0.920
+ Planning Time: 2.014 ms
+ JIT:
+   Functions: 14
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 11.797 ms, Inlining 0.000 ms, Optimization 2.239 ms, Emission 70.457 ms, Total 84.492 ms
+ Execution Time: 7353.120 ms
+(25 rows)
+
+######## C7 dashboard: usuarios por rol
+                                                                               QUERY PLAN                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate  (cost=65049.08..65049.84 rows=3 width=12) (actual time=1560.926..1569.066 rows=3 loops=1)
+   Group Key: id_rol
+   Buffers: shared hit=14 read=26549
+   I/O Timings: shared read=3115.242
+   ->  Gather Merge  (cost=65049.08..65049.78 rows=6 width=12) (actual time=1560.913..1569.052 rows=9 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=14 read=26549
+         I/O Timings: shared read=3115.242
+         ->  Sort  (cost=64049.05..64049.06 rows=3 width=12) (actual time=1527.922..1527.925 rows=3 loops=3)
+               Sort Key: id_rol
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=14 read=26549
+               I/O Timings: shared read=3115.242
+               Worker 0:  Sort Method: quicksort  Memory: 25kB
+               Worker 1:  Sort Method: quicksort  Memory: 25kB
+               ->  Partial HashAggregate  (cost=64049.00..64049.03 rows=3 width=12) (actual time=1526.827..1526.829 rows=3 loops=3)
+                     Group Key: id_rol
+                     Batches: 1  Memory Usage: 24kB
+                     Buffers: shared read=26549
+                     I/O Timings: shared read=3115.242
+                     Worker 0:  Batches: 1  Memory Usage: 24kB
+                     Worker 1:  Batches: 1  Memory Usage: 24kB
+                     ->  Parallel Seq Scan on usuario_roles "UsuarioRol"  (cost=0.00..51549.00 rows=2500000 width=8) (actual time=0.391..1208.208 rows=2000000 loops=3)
+                           Buffers: shared read=26549
+                           I/O Timings: shared read=3115.242
+ Planning:
+   Buffers: shared hit=2 read=1
+   I/O Timings: shared read=0.075
+ Planning Time: 0.811 ms
+ Execution Time: 1569.935 ms
+(31 rows)
+
+######## C8 pagos por rango de fechas (SIN ENDPOINT)
+                                                                        QUERY PLAN                                                                         
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Gather Merge  (cost=221812.05..266646.45 rows=384268 width=72) (actual time=13742.130..13958.891 rows=485228 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   Buffers: shared hit=163 read=124226, temp read=5285 written=5289
+   I/O Timings: shared read=27104.952, temp read=14.463 write=315.572
+   ->  Sort  (cost=220812.03..221292.36 rows=192134 width=72) (actual time=13689.432..13723.459 rows=161743 loops=3)
+         Sort Key: "Pago".fecha
+         Sort Method: external merge  Disk: 14232kB
+         Buffers: shared hit=163 read=124226, temp read=5285 written=5289
+         I/O Timings: shared read=27104.952, temp read=14.463 write=315.572
+         Worker 0:  Sort Method: external merge  Disk: 14024kB
+         Worker 1:  Sort Method: external merge  Disk: 14024kB
+         ->  Parallel Hash Right Join  (cost=108083.55..199333.98 rows=192134 width=72) (actual time=9787.070..12852.912 rows=161743 loops=3)
+               Hash Cond: (tarifa.id = "Pago"."tarifaId")
+               Buffers: shared hit=90 read=124225
+               I/O Timings: shared read=27104.284
+               ->  Parallel Seq Scan on tarifas tarifa  (cost=0.00..81074.91 rows=2499991 width=17) (actual time=0.160..1715.277 rows=2000000 loops=3)
+                     Buffers: shared hit=32 read=56043
+                     I/O Timings: shared read=4368.127
+               ->  Parallel Hash  (cost=105681.88..105681.88 rows=192134 width=55) (actual time=9784.373..9784.374 rows=161743 loops=3)
+                     Buckets: 524288  Batches: 1  Memory Usage: 49664kB
+                     Buffers: shared read=68182
+                     I/O Timings: shared read=22736.157
+                     ->  Parallel Seq Scan on pagos "Pago"  (cost=0.00..105681.88 rows=192134 width=55) (actual time=30.521..7980.726 rows=161743 loops=3)
+                           Filter: (((fecha)::text >= '2026-10-01'::text) AND ((fecha)::text <= '2026-10-31'::text))
+                           Rows Removed by Filter: 1838257
+                           Buffers: shared read=68182
+                           I/O Timings: shared read=22736.157
+ Planning:
+   Buffers: shared hit=38 read=18
+   I/O Timings: shared read=12.395
+ Planning Time: 18.711 ms
+ JIT:
+   Functions: 36
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 7.253 ms, Inlining 0.000 ms, Optimization 3.999 ms, Emission 85.793 ms, Total 97.045 ms
+ Execution Time: 13987.303 ms
+(37 rows)
+
+######## C9 verificarRol (rol.middleware.js, 2 consultas por request)
+                                              QUERY PLAN                                              
+------------------------------------------------------------------------------------------------------
+ Seq Scan on roles "Rol"  (cost=0.00..1.04 rows=1 width=11) (actual time=0.146..0.147 rows=1 loops=1)
+   Filter: ((nombre)::text = 'socio'::text)
+   Rows Removed by Filter: 2
+   Buffers: shared read=1
+   I/O Timings: shared read=0.098
+ Planning Time: 0.150 ms
+ Execution Time: 0.163 ms
+(7 rows)
+
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using usuario_roles_pkey on usuario_roles "UsuarioRol"  (cost=0.43..1.55 rows=1 width=8) (actual time=1.105..1.108 rows=1 loops=1)
+   Index Cond: ((id_usuario = 21037) AND (id_rol = 3))
+   Heap Fetches: 0
+   Buffers: shared hit=1 read=3
+   I/O Timings: shared read=1.016
+ Planning Time: 0.093 ms
+ Execution Time: 1.162 ms
+(7 rows)
+
+######## C10 login (auth.controller.js, 3 consultas)
+                                                               QUERY PLAN                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using usuarios_email_key on usuarios "Usuario"  (cost=0.56..2.78 rows=1 width=160) (actual time=2.995..2.998 rows=1 loops=1)
+   Index Cond: ((email)::text = 'sofia.godoy.21037@hotmail.com'::text)
+   Buffers: shared read=5
+   I/O Timings: shared read=2.876
+ Planning:
+   Buffers: shared hit=8 read=1
+   I/O Timings: shared read=0.411
+ Planning Time: 1.494 ms
+ Execution Time: 3.114 ms
+(9 rows)
+
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using usuario_roles_pkey on usuario_roles "UsuarioRol"  (cost=0.43..1.55 rows=1 width=8) (actual time=0.154..0.155 rows=1 loops=1)
+   Index Cond: (id_usuario = 21037)
+   Heap Fetches: 0
+   Buffers: shared hit=4
+ Planning Time: 0.077 ms
+ Execution Time: 0.195 ms
+(6 rows)
+
+                                              QUERY PLAN                                              
+------------------------------------------------------------------------------------------------------
+ Seq Scan on roles "Rol"  (cost=0.00..1.04 rows=1 width=11) (actual time=0.012..0.012 rows=1 loops=1)
+   Filter: (id = 3)
+   Rows Removed by Filter: 2
+   Buffers: shared hit=1
+ Planning Time: 0.064 ms
+ Execution Time: 0.025 ms
+(6 rows)
+
+######## Descartadas: usuario por DNI y ejercicios ILIKE
+                                                              QUERY PLAN                                                              
+--------------------------------------------------------------------------------------------------------------------------------------
+ Index Scan using usuarios_dni_key on usuarios "Usuario"  (cost=0.43..2.65 rows=1 width=83) (actual time=2.572..2.575 rows=1 loops=1)
+   Index Cond: ((dni)::text = '20021037'::text)
+   Buffers: shared hit=1 read=3
+   I/O Timings: shared read=2.369
+ Planning Time: 0.086 ms
+ Execution Time: 2.607 ms
+(6 rows)
+
+                                                     QUERY PLAN                                                     
+--------------------------------------------------------------------------------------------------------------------
+ Seq Scan on ejercicios "Ejercicio"  (cost=0.00..6.50 rows=26 width=129) (actual time=0.360..0.784 rows=25 loops=1)
+   Filter: ((nombre)::text ~~* '%press%'::text)
+   Rows Removed by Filter: 175
+   Buffers: shared read=4
+   I/O Timings: shared read=0.624
+ Planning:
+   Buffers: shared hit=5 read=1
+   I/O Timings: shared read=0.312
+ Planning Time: 3.253 ms
+ Execution Time: 0.804 ms
+(10 rows)
+

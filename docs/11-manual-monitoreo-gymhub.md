@@ -33,7 +33,7 @@ Prometheus consulta a node-exporter, cAdvisor, postgres-exporter y blackbox-expo
 
 - Las capturas deben mostrar fecha, consulta, valor y fuente; no reemplazarlas por capturas de paneles sin datos.
 - La réplica y el lag requieren exporter y métricas reales. `pg_up=1` solo confirma conexión; no es prueba de streaming o lag.
-- `pg_stat_statements` necesita habilitación y exportación efectiva para consultas lentas.
+- `pg_stat_statements` está habilitado y verificado desde SCRUM-39 (`shared_preload_libraries`, ver `docs/SCRUM-39-analisis-consultas-pgbadger.md`). Falta exportarlo a Prometheus para tener un panel de consultas lentas.
 - Reinicios Docker requieren comparación fiable con `RestartCount`, y la prueba de disparo real de regla Prometheus necesita un recorrido firing → Alertmanager → n8n → Mantis → resolved.
 - La URL pública y el túnel pueden ser efímeros: registrar la fecha y sondeo realmente activo.
 

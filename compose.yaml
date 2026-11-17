@@ -35,6 +35,7 @@ services:
     image: postgres:16-alpine
     container_name: demo_hia_db
     restart: unless-stopped
+    shm_size: 256mb   # SCRUM-39: /dev/shm por defecto (64 MB) no alcanza para hash join paralelo
     environment:
       POSTGRES_DB: ${DB_NAME:-demo_hia}
       POSTGRES_USER: ${DB_USER:-demo_hia}
