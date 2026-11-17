@@ -1,0 +1,21 @@
+SCRUM-39 workload: 276 socios, concurrencia 4, http://localhost:3039
+  25/276 socios (117 s)
+  50/276 socios (157 s)
+  75/276 socios (183 s)
+  100/276 socios (209 s)
+  125/276 socios (234 s)
+  150/276 socios (262 s)
+  175/276 socios (287 s)
+  200/276 socios (316 s)
+  225/276 socios (341 s)
+  250/276 socios (367 s)
+  275/276 socios (391 s)
+
+Duracion total: 392 s
+
+endpoint                               llamadas   p50_ms   p95_ms   max_ms  errores  status
+POST /api/auth/login                        277      106      339     1306        0  {"200":277}
+GET /api/tarifas/mis-tarifas                276     1655     3781    10343        0  {"200":276}
+GET /api/rutinas/mis-rutinas                276     1145     4559    24417        0  {"200":276}
+GET /api/usuarios/:dni                      276       25      129      705        0  {"200":276}
+GET /api/tarifas/impagas/:usuarioId         276     1355     3499    19293        0  {"200":276}
