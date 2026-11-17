@@ -18,6 +18,9 @@
 x-db-base: &db-base
   image: postgres:16-alpine
   restart: unless-stopped
+  # SCRUM-39: Docker limita /dev/shm a 64 MB y los hash join paralelos sobre 6M filas fallan con
+  # "could not resize shared memory segment ... No space left on device".
+  shm_size: 256mb
   environment:
     POSTGRES_DB: ${DB_NAME:?DB_NAME no definida en .env}
     POSTGRES_USER: ${DB_USER:?DB_USER no definida en .env}
