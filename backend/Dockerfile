@@ -3,7 +3,7 @@
 # Run:    docker run --env-file backend/.env -p 3000:3000 gymhub-backend
 
 # --- Etapa 1: dependencias de producción ---------------------------------
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 # --omit=dev: nodemon y demás herramientas de desarrollo no entran a la imagen.
@@ -11,7 +11,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # --- Etapa 2: imagen final -----------------------------------------------
-FROM node:22-alpine
+FROM node:26-alpine
 ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
