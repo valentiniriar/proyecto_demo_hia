@@ -10,7 +10,8 @@
 
 services:
   frontend:
-    image: ghcr.io/valentiniriar/gymhub-frontend:${IMAGE_TAG:-latest}
+    # gymhub-web (no gymhub-frontend): ver el paso "Build y push" de .github/workflows/cd.yml
+    image: ghcr.io/valentiniriar/gymhub-web:${IMAGE_TAG:-latest}
     container_name: gymhub_frontend_prod
     # Solo en localhost: desde Internet se entra por el túnel (red Docker), no por el puerto 80 del host.
     ports:

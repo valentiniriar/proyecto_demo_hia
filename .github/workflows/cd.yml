@@ -63,8 +63,11 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
           SOURCE: https://github.com/${{ github.repository }}
         run: |
-          for app in backend frontend; do
-            img="$REGISTRY/gymhub-$app"
+          # carpeta:paquete. El frontend se publica como gymhub-web: el paquete gymhub-frontend
+          # ya existía en la cuenta sin vínculo con este repo y el GITHUB_TOKEN no puede escribirlo.
+          for par in backend:gymhub-backend frontend:gymhub-web; do
+            app="${par%%:*}"
+            img="$REGISTRY/${par##*:}"
             docker build ./$app \
               --label "org.opencontainers.image.source=$SOURCE" \
               --label "org.opencontainers.image.revision=$TAG" \
