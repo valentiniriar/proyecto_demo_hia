@@ -23,7 +23,7 @@ flowchart LR
 | Pieza | Archivo | Qué hace |
 |---|---|---|
 | Workflow | `.github/workflows/cd.yml` | Se dispara cuando termina el CI de `main`. Si el CI falló, no hace nada. |
-| Job `publicar` | `cd.yml` | Construye las imágenes del commit que validó el CI y las publica en `ghcr.io/valentiniriar/gymhub-{backend,frontend}` con dos tags: el **SHA del commit** (inmutable) y `latest`. |
+| Job `publicar` | `cd.yml` | Construye las imágenes del commit que validó el CI y las publica en `ghcr.io/valentiniriar/gymhub-backend` y `ghcr.io/valentiniriar/gymhub-web` (frontend) con dos tags: el **SHA del commit** (inmutable) y `latest`. |
 | Job `desplegar` | `cd.yml` | Corre en el **runner self-hosted** de la PC servidor (labels `self-hosted, gymhub`), en el environment `produccion`. Ejecuta `scripts/deploy.sh <SHA>`. |
 | Script | `scripts/deploy.sh` | Descarga la versión, la levanta, verifica la salud de punta a punta y hace rollback automático si falla. |
 | Compose | `compose.prod.yaml` | Las imágenes usan `${IMAGE_TAG}`: desplegar o volver atrás es "levantar el SHA X". |
