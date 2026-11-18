@@ -152,9 +152,38 @@ historial: 2026-11-18 17:46:28 | 6eaa021321049eebe0ef003fccfeb6a40722cf23 | OK
 
 Lo que mostró esta prueba: un error de publicación **no llega a producción** (el despliegue depende de que la publicación termine bien) y un job fallido se puede reintentar sin un commit nuevo.
 
-### 6.2 Rollback manual
+### 6.2 Despliegue automático de una versión nueva
 
-Se detalla en el PR que agrega esta sección y en el ticket SCRUM-59: *Run workflow* con el SHA de la versión anterior y vuelta a la versión actual.
+Release #74 → `main` (`967f238`): CI ✓ · CD [run 44395602163](https://github.com/valentiniriar/proyecto_demo_hia/actions/runs/44395602163) (`workflow_run`): publicar ✓ · desplegar ✓ al primer intento.
+
+### 6.3 Rollback manual y vuelta a la versión actual
+
+Con dos versiones completas publicadas (`6eaa021` y `967f238`), desde *Actions → CD → Run workflow* sobre `main`:
+
+| Ejecución | Evento | `tag` | Publicar | Desplegar | Resultado en el servidor |
+|---|---|---|---|---|---|
+| [44395911551](https://github.com/valentiniriar/proyecto_demo_hia/actions/runs/44395911551) | `workflow_dispatch` | `6eaa021…` (versión anterior) | omitido (la imagen ya existe en GHCR) | ✓ | backend y frontend en `6eaa021`, `/api/health` 200 |
+| [44396079225](https://github.com/valentiniriar/proyecto_demo_hia/actions/runs/44396079225) | `workflow_dispatch` | `967f238…` (versión actual) | omitido | ✓ | backend y frontend en `967f238`, login de admin OK |
+
+Historial del servidor (`bash scripts/deploy.sh --estado`):
+
+```
+2026-11-18 17:46:28 | 6eaa021321049eebe0ef003fccfeb6a40722cf23 | OK      ← primer CD real (6.1)
+2026-11-18 17:54:03 | 967f238a0a799358e4eeb8703e71fc736e0f65d8 | OK      ← CD automático (6.2)
+2026-11-18 17:55:02 | 6eaa021321049eebe0ef003fccfeb6a40722cf23 | OK      ← rollback manual
+2026-11-18 17:56:00 | 967f238a0a799358e4eeb8703e71fc736e0f65d8 | OK      ← vuelta a la versión actual
+```
+
+Cada cambio de versión tardó alrededor de 1 minuto de punta a punta (incluye la cola de GitHub) y no requirió compilar: el rollback solo descarga imágenes ya publicadas.
+
+### 6.4 Resumen de mecanismos de reversión
+
+| Situación | Mecanismo | Probado |
+|---|---|---|
+| La versión nueva no pasa la verificación de salud | Rollback **automático** de `deploy.sh` a la versión anterior | Sí, local (sección 5) |
+| La versión nueva funciona pero tiene un error funcional | Rollback **manual**: *Run workflow* con el SHA anterior | Sí, en GitHub (6.3) |
+| Falla la publicación en GHCR | El despliegue no se ejecuta; producción no cambia | Sí, en GitHub (6.1) |
+| El código en `main` debe revertirse | `git revert` + PR de release; el CD despliega la versión revertida | Procedimiento estándar |
 
 ## 7. Limitaciones
 
