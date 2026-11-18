@@ -46,7 +46,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # El commit exacto que validó el CI, no lo que haya en main ahora.
           ref: ${{ github.event.workflow_run.head_sha }}
@@ -104,7 +104,7 @@ jobs:
           [[ "$TAG" =~ ^[0-9a-f]{40}$ ]] || { echo "Tag inválido: '$TAG' (se espera el SHA completo)"; exit 1; }
 
       # Mismos archivos de compose que la versión desplegada (importa en un rollback).
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.TAG }}
           persist-credentials: false
