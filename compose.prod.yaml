@@ -1,18 +1,33 @@
-# Configuración de Producción (compose.prod.yaml - SCRUM-53)
-# Imágenes seguras de registro (GHCR), puertos de base de datos completamente aislados de la red externa.
+# Configuración de Producción (compose.prod.yaml - SCRUM-53, ajustado en SCRUM-57)
+# Imágenes inmutables de GHCR, puertos de base de datos aislados de la red externa.
+#
+# IMAGE_TAG elige la versión a desplegar: el SHA del commit que publicó el CD (SCRUM-56).
+# Así un despliegue o un rollback es "levantar el SHA X". Sin IMAGE_TAG se usa latest.
+#
+# Lo despliega scripts/deploy.sh (llamado por .github/workflows/cd.yml) como proyecto "gymhub":
+#   IMAGE_TAG=<sha> docker compose -p gymhub --env-file C:/gymhub/.env.prod \
+#     -f compose.yaml -f compose.prod.yaml -f compose.tunnel.yaml --profile prod up -d ...
 
 services:
   frontend:
-    image: ghcr.io/valentiniriar/gymhub-frontend:latest
+    image: ghcr.io/valentiniriar/gymhub-frontend:${IMAGE_TAG:-latest}
     container_name: gymhub_frontend_prod
+    # Solo en localhost: desde Internet se entra por el túnel (red Docker), no por el puerto 80 del host.
     ports:
-      - "80:8080"
+      - "127.0.0.1:80:8080"
     environment:
       NODE_ENV: production
+      # Nginx llega al backend por la red interna de Docker.
+      BACKEND_UPSTREAM: http://backend:3000
 
   backend:
-    image: ghcr.io/valentiniriar/gymhub-backend:latest
+    image: ghcr.io/valentiniriar/gymhub-backend:${IMAGE_TAG:-latest}
     container_name: gymhub_backend_prod
+    depends_on:
+      db:
+        condition: service_healthy
+      db-replica:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -20,14 +35,36 @@ services:
       DB_PORT_PRIMARY: 5432
       DB_HOST_REPLICA: db-replica
       DB_PORT_REPLICA: 5432
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASS: ${DB_PASS}
-      JWT_SECRET: ${JWT_SECRET}
+      DB_NAME: ${DB_NAME:?DB_NAME no definida}
+      DB_USER: ${DB_USER:?DB_USER no definida}
+      DB_PASS: ${DB_PASS:?DB_PASS no definida}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET no definida}
 
-  # En producción, ni el primario ni la réplica exponen puertos al host del servidor
+  # En producción, ni el primario ni la réplica exponen puertos al host del servidor.
+  # Nombres propios para no chocar con los contenedores de desarrollo (demo_hia_db*) en la misma PC.
   db:
+    container_name: gymhub_db_prod
     ports: []
 
   db-replica:
+    container_name: gymhub_db_replica_prod
     ports: []
+
+  backup:
+    container_name: gymhub_backup_prod
+
+# Redes y volúmenes propios de producción: en el mismo servidor conviven los de desarrollo
+# (gymhub_db_net, gymhub_db_data…) y producción nunca debe usar la base de desarrollo.
+networks:
+  frontend_net:
+    name: gymhub_prod_frontend_net
+  db_net:
+    name: gymhub_prod_db_net
+
+volumes:
+  db_data:
+    name: gymhub_prod_db_data
+  db_replica_data:
+    name: gymhub_prod_db_replica_data
+  db_backups:
+    name: gymhub_prod_db_backups

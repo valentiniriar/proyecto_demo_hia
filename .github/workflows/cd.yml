@@ -1,0 +1,125 @@
+# Despliegue continuo de GymHub (SCRUM-56 / SCRUM-57 / SCRUM-59)
+#
+#   push a main ─► CI ─(solo si pasa)─► publicar: imágenes a GHCR con tag = SHA del commit
+#                                        └─► desplegar: runner self-hosted en el servidor
+#                                             scripts/deploy.sh <sha> (verifica salud; rollback automático)
+#
+# Rollback manual: Actions → CD → Run workflow → tag = SHA completo de una versión ya publicada.
+# Detalle: docs/SCRUM-57-despliegue-continuo.md
+
+name: CD
+
+on:
+  # Solo corre cuando el CI de main terminó; el if de "publicar" exige que haya pasado.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'SHA completo (40 caracteres) de una versión ya publicada en GHCR. Vacío = último commit de main.'
+        required: false
+        default: ''
+
+permissions: {}
+
+# Un despliegue por vez; uno nuevo espera al anterior en lugar de cancelarlo a la mitad.
+concurrency:
+  group: cd-produccion
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/valentiniriar
+
+jobs:
+  publicar:
+    name: Publicar imágenes en GHCR
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # El commit exacto que validó el CI, no lo que haya en main ahora.
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - id: tag
+        run: echo "tag=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Login en GHCR (token efímero del workflow, sin secretos propios)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build y push
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          SOURCE: https://github.com/${{ github.repository }}
+        run: |
+          for app in backend frontend; do
+            img="$REGISTRY/gymhub-$app"
+            docker build ./$app \
+              --label "org.opencontainers.image.source=$SOURCE" \
+              --label "org.opencontainers.image.revision=$TAG" \
+              -t "$img:$TAG" -t "$img:latest"
+            docker push "$img:$TAG"
+            docker push "$img:latest"
+            echo "- \`$img:$TAG\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Logout
+        if: always()
+        run: docker logout ghcr.io
+
+  desplegar:
+    name: Desplegar en el servidor
+    needs: publicar
+    # Tras publicar (push a main) o a pedido (rollback manual), nunca si la publicación falló.
+    if: >
+      always() &&
+      (needs.publicar.result == 'success' ||
+       (github.event_name == 'workflow_dispatch' && needs.publicar.result == 'skipped'))
+    runs-on: [self-hosted, gymhub]
+    environment:
+      name: produccion
+    permissions:
+      contents: read
+      packages: read
+    env:
+      TAG: ${{ needs.publicar.outputs.tag || inputs.tag || github.sha }}
+    steps:
+      - name: Validar tag
+        shell: bash
+        run: |
+          [[ "$TAG" =~ ^[0-9a-f]{40}$ ]] || { echo "Tag inválido: '$TAG' (se espera el SHA completo)"; exit 1; }
+
+      # Mismos archivos de compose que la versión desplegada (importa en un rollback).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+
+      - name: Login en GHCR
+        shell: bash
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Desplegar (verifica salud y hace rollback automático si falla)
+        shell: bash
+        run: bash scripts/deploy.sh "$TAG"
+
+      - name: Estado
+        if: always()
+        shell: bash
+        run: bash scripts/deploy.sh --estado >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Logout
+        if: always()
+        shell: bash
+        run: docker logout ghcr.io
