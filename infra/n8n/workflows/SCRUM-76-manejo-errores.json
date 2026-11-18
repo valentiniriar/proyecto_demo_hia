@@ -1,0 +1,53 @@
+{
+  "name": "SCRUM-76 - Manejo de errores",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e610aa88-fe72-4e79-9aec-0ce9589eb721",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "fromEmail": "alertas@gymhub.local",
+        "toEmail": "responsable@gymhub.local",
+        "subject": "ERROR - SCRUM-76 GymHub",
+        "emailFormat": "text",
+        "text": "=ERROR DETECTADO EN GYMHUB\n\nWorkflow: {{ $json.workflow?.name || 'Desconocido' }}\n\nError: {{ $json.execution?.error?.message || $json.trigger?.error?.message || 'Sin detalle disponible' }}\n\nNodo: {{ $json.execution?.lastNodeExecuted || 'No disponible' }}\n\nRevisar las ejecuciones de n8n.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        224,
+        16
+      ],
+      "id": "997e7035-9b4a-47c3-b3b8-02b752f23b30",
+      "name": "Send an Email"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}

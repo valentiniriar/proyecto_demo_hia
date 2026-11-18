@@ -1,0 +1,130 @@
+# Integración continua de GymHub (SCRUM-55)
+# Corre en cada Pull Request y en cada push a develop / main.
+# Si un job falla, la protección de ramas impide mergear el PR.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+# Permisos mínimos (SCRUM-58): por defecto ninguno; cada job declara solo lo que usa.
+# El CI no usa secretos: los de despliegue viven en GitHub Environments (ver docs/SCRUM-58).
+permissions: {}
+
+# Un push nuevo a la misma rama cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  secretos:
+    name: Escaneo de secretos (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Imagen fijada por digest (no por tag): un tag se puede volver a publicar, el digest no.
+      - name: gitleaks sobre todo el historial
+        run: >
+          docker run --rm --user "$(id -u):$(id -g)"
+          -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0='*'
+          -v "${{ github.workspace }}:/repo"
+          zricethezav/gitleaks@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46
+          git /repo --redact --verbose --exit-code 1
+
+  backend:
+    name: Backend (sintaxis, lint, tests, auditoría)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar sintaxis de todos los archivos JS
+        run: find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
+
+      # Se activan solos cuando existan los scripts (SCRUM-32).
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Tests
+        run: npm run test:ci --if-present
+
+      - name: Auditoría de dependencias de producción
+        run: npm audit --omit=dev --audit-level=high
+
+  frontend:
+    name: Frontend (build, tests, auditoría)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Build de producción
+        run: npx ng build --configuration production
+
+      - name: Tests unitarios
+        run: npx ng test --watch=false
+
+      - name: Auditoría de dependencias de producción
+        run: npm audit --omit=dev --audit-level=high
+
+  docker:
+    name: Build de imágenes Docker
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Build imagen backend
+        if: hashFiles('backend/Dockerfile') != ''
+        run: docker build -t gymhub-backend:ci ./backend
+
+      - name: Build imagen frontend
+        if: hashFiles('frontend/Dockerfile') != ''
+        run: docker build -t gymhub-frontend:ci ./frontend

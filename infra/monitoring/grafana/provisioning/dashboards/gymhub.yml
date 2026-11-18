@@ -1,0 +1,12 @@
+apiVersion: 1
+providers:
+  - name: GymHub
+    orgId: 1
+    folder: GymHub
+    folderUid: gymhub
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 15
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

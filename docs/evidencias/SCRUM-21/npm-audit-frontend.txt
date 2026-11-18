@@ -1,0 +1,76 @@
+# npm audit (frontend) - 2026-11-13T15:01Z - node v20.20.2 / npm 10.8.2
+
+## npm audit --omit=dev (dependencias de producción)
+found 0 vulnerabilities
+
+## npm audit (incluye herramientas de desarrollo)
+# npm audit report
+
+glob  9.0.0 - 14.0.1
+Severity: moderate
+Glob: AbortSignal cancellation bypass allows post-timeout filesystem traversal - https://github.com/advisories/GHSA-3g3m-2fjr-6pw4
+Depends on vulnerable versions of minimatch
+fix available via `npm audit fix --force`
+Will install @angular/cli@17.3.17, which is a breaking change
+node_modules/glob
+  @npmcli/package-json  3.1.0 - 8.0.0
+  Depends on vulnerable versions of glob
+  node_modules/@npmcli/package-json
+    @npmcli/run-script  7.0.4 - 10.0.4
+    Depends on vulnerable versions of @npmcli/package-json
+    node_modules/@npmcli/run-script
+      pacote  >=17.0.0
+      Depends on vulnerable versions of @npmcli/package-json
+      Depends on vulnerable versions of @npmcli/run-script
+      Depends on vulnerable versions of cacache
+      Depends on vulnerable versions of npm-packlist
+      Depends on vulnerable versions of npm-registry-fetch
+      Depends on vulnerable versions of sigstore
+      node_modules/pacote
+        @angular/cli  18.0.0-next.0 - 22.1.0-rc.0
+        Depends on vulnerable versions of pacote
+        node_modules/@angular/cli
+  cacache  17.0.5 - 21.0.1
+  Depends on vulnerable versions of glob
+  node_modules/cacache
+    make-fetch-happen  13.0.0 - 15.0.6
+    Depends on vulnerable versions of cacache
+    node_modules/make-fetch-happen
+      @sigstore/sign  2.0.0 - 4.1.1
+      Depends on vulnerable versions of make-fetch-happen
+      node_modules/@sigstore/sign
+        sigstore  >=1.6.0
+        Depends on vulnerable versions of @sigstore/sign
+        Depends on vulnerable versions of @sigstore/tuf
+        node_modules/sigstore
+      npm-registry-fetch  16.0.0 - 19.1.1
+      Depends on vulnerable versions of make-fetch-happen
+      node_modules/npm-registry-fetch
+      tuf-js  >=1.1.2
+      Depends on vulnerable versions of @tufjs/models
+      Depends on vulnerable versions of make-fetch-happen
+      node_modules/tuf-js
+        @sigstore/tuf  *
+        Depends on vulnerable versions of tuf-js
+        node_modules/@sigstore/tuf
+
+minimatch  7.0.0 - 11.0.0
+Severity: moderate
+minimatch has potential denial of service via globparts amplification - https://github.com/advisories/GHSA-g3hv-75wg-m249
+fix available via `npm audit fix --force`
+Will install @angular/cli@17.3.17, which is a breaking change
+node_modules/minimatch
+  @tufjs/models  >=1.0.1
+  Depends on vulnerable versions of minimatch
+  node_modules/@tufjs/models
+  ignore-walk  >=6.0.2
+  Depends on vulnerable versions of minimatch
+  node_modules/ignore-walk
+    npm-packlist  >=8.0.1
+    Depends on vulnerable versions of ignore-walk
+    node_modules/npm-packlist
+
+16 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force

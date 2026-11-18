@@ -194,7 +194,7 @@ En la raíz del proyecto se encuentran los archivos principales de inicializaci�
 - .gitignore: exclusión de archivos sensibles o temporales del control de versiones.
 - swagger.js: configuración de Swagger y generación del archivo swagger_output.json.
 - swagger_output.json: documentación generada automáticamente.
-- test_mp.js: script auxiliar para probar la integración con MercadoPago.
+- scripts/test-mp.js: script manual para probar la integración con MercadoPago (`npm run test:mp`; lee `backend/.env`).
 
 ### config/
 

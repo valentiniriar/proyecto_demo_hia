@@ -1,0 +1,2 @@
+[>                        ] Parsed       0 bytes of 1550111 (0.00%), queries: 0, events: 0[>                        ] Parsed    1407 bytes of 1550111 (0.09%), queries: 2, events: 1[>                        ] Parsed   31185 bytes of 1550111 (2.01%), queries: 92, events: 1[=====>                   ] Parsed  358933 bytes of 1550111 (23.16%), queries: 992, events: 1[========================>] Parsed 1550111 bytes of 1550111 (100.00%), queries: 4220, events: 3
+LOG: Ok, generating html report...

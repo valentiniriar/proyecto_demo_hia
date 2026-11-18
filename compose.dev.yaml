@@ -1,0 +1,67 @@
+# Configuración de Desarrollo (compose.dev.yaml - SCRUM-53)
+# Habilita puertos locales para debugging, montaje en vivo de código y visor de BD.
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gymhub_frontend_dev
+    # SCRUM-61: solo en la PC local. Para probar desde otro dispositivo de la LAN:
+    # GYMHUB_BIND=0.0.0.0 (o mejor, usar el túnel: compose.tunnel.yaml).
+    ports:
+      - "${GYMHUB_BIND:-127.0.0.1}:8080:8080"
+    environment:
+      NODE_ENV: development
+      # Nginx llega al backend por la red interna de Docker, no por el host.
+      BACKEND_UPSTREAM: http://backend:3000
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: gymhub_backend_dev
+    # SCRUM-61: API directa (Swagger, debugging) solo desde la PC local.
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-demo_hia}
+      DB_USER: ${DB_USER:-demo_hia}
+      DB_PASS: ${DB_PASS:-demo_hia_pass}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_key_123456789}
+      # SCRUM-84: eventos de seguridad hacia n8n (opcional; vacío = desactivado).
+      # Ej.: http://host.docker.internal:5679/webhook/gymhub-seguridad
+      SECURITY_EVENTS_WEBHOOK_URL: ${SECURITY_EVENTS_WEBHOOK_URL:-}
+      SECURITY_EVENTS_WEBHOOK_SECRET: ${SECURITY_EVENTS_WEBHOOK_SECRET:-}
+
+  db:
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+
+  db-replica:
+    ports:
+      - "127.0.0.1:${DB_REPLICA_PORT:-5434}:5432"
+
+  # pgAdmin habilitado en dev para inspección gráfica
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: demo_hia_pgadmin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@gymhub.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin1234}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./database/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    networks:
+      - db_net

@@ -1,0 +1,14 @@
+Timing is on.
+       tabla       | columnas_not_null | columnas_total | columnas_que_aceptan_null 
+-------------------+-------------------+----------------+---------------------------
+ ejercicios        |                 7 |              7 | 
+ pagos             |                 7 |              8 | tarifaId
+ roles             |                 2 |              2 | 
+ rutina_ejercicios |                 2 |              2 | 
+ rutinas           |                 8 |              9 | usuarioId
+ suscripciones     |                 7 |              8 | usuarioId
+ tarifas           |                 8 |              9 | suscripcionId
+ usuario_roles     |                 2 |              2 | 
+ usuarios          |                 9 |             10 | google_id
+
+Time: 98.797 ms

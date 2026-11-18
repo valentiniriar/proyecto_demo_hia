@@ -99,3 +99,7 @@ CREATE TABLE IF NOT EXISTS pagos (
     "updatedAt" TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     "tarifaId"  INTEGER REFERENCES tarifas (id) ON UPDATE CASCADE ON DELETE SET NULL
 );
+
+-- ---------- Observabilidad (SCRUM-39) ----------
+-- Requiere shared_preload_libraries = 'pg_stat_statements' (database/config/postgresql.conf).
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;

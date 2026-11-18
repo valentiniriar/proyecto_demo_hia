@@ -1,0 +1,235 @@
+{
+  "name": "SCRUM-76 - Alertmanager a Mantis (base)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gymhub-scrum76-alertas",
+        "authentication": "headerAuth",
+        "options": {
+          "responseData": "firstEntryJson"
+        }
+      },
+      "id": "10bf74c8-9daf-4bba-a003-ccc3a1d15c9b",
+      "name": "Webhook Alertmanager",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        560,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $input.first().json;\nconst body = incoming.body ?? incoming;\nif (!Array.isArray(body.alerts)) throw new Error('SCRUM76: payload sin lista alerts');\nconst memo = $getWorkflowStaticData('global');\nmemo.byFingerprint ??= {};\nconst output = [];\nfor (const alert of body.alerts) {\n  const status = String(alert.status ?? body.status ?? '').toLowerCase();\n  if (!['firing','resolved'].includes(status)) throw new Error('Estado invalido');\n  const fingerprint = String(alert.fingerprint ?? '').trim();\n  if (!/^[a-zA-Z0-9_-]{6,128}$/.test(fingerprint)) throw new Error('Fingerprint faltante o invalido');\n  const severity = String(alert.labels?.severity ?? '').toLowerCase();\n  if (!['critical','warning','info'].includes(severity)) throw new Error('Severidad invalida');\n  const prior = memo.byFingerprint[fingerprint];\n  if (status === 'firing' && prior?.issueId) continue;\n  if (status === 'resolved' && !prior?.issueId) continue;\n  const title = String(alert.labels?.alertname ?? 'SinNombre').slice(0,120);\n  const instance = String(alert.labels?.instance ?? 'sin instancia').slice(0,160);\n  const details = String(alert.annotations?.description ?? alert.annotations?.summary ?? 'Sin descripcion').slice(0,2000);\n  output.push({json:{status,fingerprint,severity,title,instance,\n    summary:`[Prometheus] ${title} - ${instance}`.slice(0,120),\n    description:`Alerta de Prometheus/Alertmanager\\\\nEstado: ${status}\\\\nFingerprint: ${fingerprint}\\\\nSeveridad: ${severity}\\\\nInstancia: ${instance}\\\\nDetalle: ${details}`,\n    mantis_priority:severity==='critical'?'urgent':severity==='warning'?'high':'normal',\n    mantis_severity:severity==='critical'?'major':severity==='warning'?'minor':'text',\n    issueId:prior?.issueId ?? null,\n    resolvedAt:String(alert.endsAt ?? new Date().toISOString())}});\n}\nreturn output;"
+      },
+      "id": "cc6f1822-83ef-4b96-b06f-44d9f9d12786",
+      "name": "Validar y deduplicar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "6842ce45-e628-442c-9949-ff605ee07dc9",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "firing",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "92b8ed5a-19ec-4c4b-b285-adffdbed0919",
+      "name": "Estado firing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        992,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://mantis/api/rest/issues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ summary: $json.summary, description: $json.description, project: {name: \"GymHub\"}, category: {name: \"Infraestructura\"}, priority: {name: $json.mantis_priority}, severity: {name: $json.mantis_severity} }) }}",
+        "options": {}
+      },
+      "id": "30f7a495-b70f-4bfb-8681-1976448c2706",
+      "name": "Crear incidencia Mantis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1216,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const payload=$input.item.json;\nconst issueId=payload.issue?.id;\nif (!issueId) throw new Error('Mantis no devolvio issue.id');\nconst original=$('Validar y deduplicar').item.json;\nconst memo=$getWorkflowStaticData('global');\nmemo.byFingerprint ??= {};\nmemo.byFingerprint[original.fingerprint]={issueId,at:new Date().toISOString()};\nreturn {json:{result:'CREADA',fingerprint:original.fingerprint,issueId,link:`http://localhost:8990/view.php?id=${issueId}`}};"
+      },
+      "id": "4da97a2d-cf3b-47f8-86d1-e784aa2d3896",
+      "name": "Guardar ID de incidencia",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"http://mantis/api/rest/issues/\" + $json.issueId + \"/notes\" }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({text: \"Alerta recuperada automaticamente por Alertmanager. Fingerprint: \" + $json.fingerprint + \". Finalizada: \" + $json.resolvedAt }) }}",
+        "options": {}
+      },
+      "id": "586c83d5-6897-4f92-a81b-81f8c2373734",
+      "name": "Agregar nota de resolucion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1216,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const original=$('Validar y deduplicar').item.json;\nconst memo=$getWorkflowStaticData('global');\nif (memo.byFingerprint) delete memo.byFingerprint[original.fingerprint];\nreturn {json:{result:'RESUELTA',issueId:original.issueId,fingerprint:original.fingerprint}};"
+      },
+      "id": "f1b5d00a-2c84-46d2-89f3-3a51326def79",
+      "name": "Marcar alerta resuelta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alertas@gymhub.local",
+        "toEmail": "responsable@gymhub.local",
+        "subject": "=Nueva incidencia GymHub #{{$json.issueId}}",
+        "html": "=<h2>Alerta de monitoreo - GymHub</h2>\n<p>Se ha creado una nueva incidencia en Mantis.</p>\n<p><strong>ID:</strong> #{{$json.issueId}}</p>\n<p><strong>Fingerprint:</strong> {{$json.fingerprint}}</p>\n<p>\n  <a href=\"{{$json.link}}\">\n    Ver incidencia en Mantis\n  </a>\n</p>\n<p>Notificación automática generada por n8n.</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1680,
+        0
+      ],
+      "id": "b7413fba-b67c-42ae-8f6b-96e38477ad75",
+      "name": "Send an Email"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Alertmanager": {
+      "main": [
+        [
+          {
+            "node": "Validar y deduplicar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar y deduplicar": {
+      "main": [
+        [
+          {
+            "node": "Estado firing?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estado firing?": {
+      "main": [
+        [
+          {
+            "node": "Crear incidencia Mantis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agregar nota de resolucion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear incidencia Mantis": {
+      "main": [
+        [
+          {
+            "node": "Guardar ID de incidencia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agregar nota de resolucion": {
+      "main": [
+        [
+          {
+            "node": "Marcar alerta resuelta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar ID de incidencia": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}

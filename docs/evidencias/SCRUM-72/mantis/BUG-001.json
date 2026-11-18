@@ -1,0 +1,14 @@
+{
+  "summary": "BUG-001: URLs de la API hardcodeadas (http://localhost:3000) en 12 servicios de Angular",
+  "category": "Frontend",
+  "severity": "major",
+  "priority": "high",
+  "description": "Los servicios del frontend apuntaban a http://localhost:3000 escrito a mano, lo que impedía desplegar detrás de Nginx o del túnel.\n\nRegistrada en el relevamiento de incidencias de SCRUM-71 (docs/SCRUM-71-incidencias-mantis.md). Reportó: Tiziano Gallo. Responsable: Tiziano Gallo.",
+  "steps_to_reproduce": "grep -rn \"localhost:3000\" frontend/src/app",
+  "additional_information": "Jira: SCRUM-50 · PR: #1",
+  "tags": [
+    "SCRUM-50",
+    "SCRUM-71",
+    "SCRUM-72"
+  ]
+}

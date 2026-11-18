@@ -1,0 +1,15 @@
+Timing is on.
+       tabla       |   filas    | esperado | estado 
+-------------------+------------+----------+--------
+ usuarios          | 6,000,000  |  6000000 | OK
+ usuario_roles     | 6,000,000  |  6000000 | OK
+ rutinas           | 6,000,000  |  6000000 | OK
+ rutina_ejercicios | 6,000,000  |  6000000 | OK
+ suscripciones     | 6,000,000  |  6000000 | OK
+ tarifas           | 6,000,000  |  6000000 | OK
+ pagos             | 6,000,000  |  6000000 | OK
+ ejercicios        | 200        |      200 | OK
+ roles             | 3          |        3 | OK
+ TOTAL             | 42,000,203 |          | 
+
+Time: 34563.182 ms (00:34.563)

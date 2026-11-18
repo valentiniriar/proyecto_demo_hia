@@ -1,0 +1,14 @@
+{
+  "summary": "BUG-010: Réplica desincronizada ante picos de escritura por falta de replication slot",
+  "category": "Infraestructura",
+  "severity": "major",
+  "priority": "high",
+  "description": "Sin slot de replicación, el primario podía reciclar WAL que la réplica todavía no había aplicado.\n\nRegistrada en el relevamiento de incidencias de SCRUM-71 (docs/SCRUM-71-incidencias-mantis.md). Reportó: Valentín Lozano. Responsable: Valentín Lozano.",
+  "steps_to_reproduce": "Carga de escritura sostenida con la réplica atrasada",
+  "additional_information": "Jira: SCRUM-45 · PR: #19",
+  "tags": [
+    "SCRUM-45",
+    "SCRUM-71",
+    "SCRUM-72"
+  ]
+}

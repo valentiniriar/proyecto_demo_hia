@@ -1,0 +1,15 @@
+ pg_reload_conf 
+----------------
+ t
+(1 row)
+
+ pg_sleep 
+----------
+ 
+(1 row)
+
+ log_min_duration_statement 
+----------------------------
+ 500ms
+(1 row)
+

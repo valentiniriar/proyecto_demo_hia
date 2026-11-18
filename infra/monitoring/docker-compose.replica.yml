@@ -1,0 +1,18 @@
+# SCRUM-66/67: solo exporter NUEVO; no crea, modifica ni reinicia PostgreSQL.
+# Requiere la replica independiente gymhub-replica-verificada previamente operativa.
+services:
+  postgres-exporter-replica:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    container_name: gymhub-postgres-exporter-replica
+    restart: unless-stopped
+    env_file:
+      - .env.replica
+    environment:
+      DATA_SOURCE_URI: gymhub-replica-verificada:5432/demo_hia?sslmode=disable
+    networks:
+      - monitoring
+      - gymhub_primary
+networks:
+  gymhub_primary:
+    external: true
+    name: proyecto_demo_hia-main_default
