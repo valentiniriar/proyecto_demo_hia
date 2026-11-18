@@ -69,11 +69,16 @@ Registrar un runner exige ser **dueño del repositorio** (`valentiniriar`):
    ```powershell
    cd C:\actions-runner
    .\config.cmd --url https://github.com/valentiniriar/proyecto_demo_hia --token <TOKEN> --name pc-servidor-gymhub --labels gymhub --work _work --unattended
-   .\run.cmd
    ```
-3. Dejar `run.cmd` abierto. Se ejecuta con el usuario de Windows, que es el que tiene acceso a Docker Desktop (un servicio con la cuenta *NETWORK SERVICE* no puede usar Docker Desktop).
+3. Copiar [`infra/runner/iniciar-runner.cmd`](../infra/runner/iniciar-runner.cmd) a `C:\actions-runner\` y arrancar el runner **siempre con ese lanzador**, no con `run.cmd` directo:
+   ```powershell
+   Start-Process C:\actions-runner\iniciar-runner.cmd
+   ```
+   Se ejecuta con el usuario de Windows, que es el que tiene acceso a Docker Desktop (un servicio con la cuenta *NETWORK SERVICE* no puede usarlo). Tras reiniciar la PC hay que volver a lanzarlo.
 
-En *Settings → Actions → Runners* el runner aparece como **Idle**.
+En el log del runner (`C:\actions-runner\_diag\Runner_*.log`) aparece `Listening for Jobs`.
+
+> **Por qué el lanzador.** En Windows, los pasos `shell: bash` del workflow usan el primer `bash.exe` del `PATH`. En esta PC el primero era `C:\Windows\System32\bash.exe` (lanzador de WSL, sin distribución instalada) y el job fallaba con `execvpe(/bin/bash) failed: No such file or directory`. El lanzador antepone `C:\Program Files\Git\bin` al `PATH`, así se usa Git Bash. El runner de Windows no lee el archivo `.path` que usa en Linux: hereda el `PATH` del proceso que lo inicia.
 
 ### 3.3 Publicar en Internet
 
@@ -122,9 +127,36 @@ container gymhub_backend_prod is unhealthy
 - Detección de la falla: 6 s. Servicio restaurado: 9 s después.
 - Con `prueba1`: login de `admin@demo.com` OK, SPA servida por Nginx (200) y réplica en modo solo lectura (`pg_is_in_recovery() = t`).
 
-Pendiente de evidencia en GitHub (SCRUM-59): ejecución del workflow CD tras un commit de prueba en `main` y un rollback manual con *Run workflow*.
+## 6. Evidencia en GitHub (SCRUM-59)
 
-## 6. Limitaciones
+### 6.1 Primer despliegue real: commit de prueba en `main`
+
+| Paso | Resultado |
+|---|---|
+| Release #70 → `main` (`4f562f1`) | CI ✓ · CD: `gymhub-backend` publicado; `gymhub-frontend` **rechazado** (`denied`): el paquete ya existía en la cuenta sin vínculo con el repo. El job `desplegar` **no se ejecutó**: producción siguió intacta. |
+| Corrección #71 + release #72 → `main` (`6eaa021`) | Frontend publicado como `gymhub-web`. CI ✓ · CD [run 44393139046](https://github.com/valentiniriar/proyecto_demo_hia/actions/runs/44393139046): publicar ✓; desplegar ✗ en el primer intento (`bash` de WSL, ver 3.2). |
+| Lanzador del runner + *Re-run failed jobs* | publicar ✓ · desplegar ✓ (55 s). |
+
+Estado del servidor tras el despliegue:
+
+```
+gymhub_backend_prod   ghcr.io/valentiniriar/gymhub-backend:6eaa0213…   Up (healthy)
+gymhub_frontend_prod  ghcr.io/valentiniriar/gymhub-web:6eaa0213…       Up
+gymhub_db_prod        postgres:16-alpine                               Up (healthy)
+gymhub_db_replica_prod postgres:16-alpine                              Up (healthy)
+
+GET  http://127.0.0.1/api/health → {"status":"ok","db":"up"}
+POST /api/auth/login (socio@demo.com) → Login exitoso
+historial: 2026-11-18 17:46:28 | 6eaa021321049eebe0ef003fccfeb6a40722cf23 | OK
+```
+
+Lo que mostró esta prueba: un error de publicación **no llega a producción** (el despliegue depende de que la publicación termine bien) y un job fallido se puede reintentar sin un commit nuevo.
+
+### 6.2 Rollback manual
+
+Se detalla en el PR que agrega esta sección y en el ticket SCRUM-59: *Run workflow* con el SHA de la versión anterior y vuelta a la versión actual.
+
+## 7. Limitaciones
 
 - El servidor es una PC personal: si está apagada o sin Docker Desktop, el job `desplegar` queda en espera hasta que el runner vuelva.
 - El rollback revierte las **imágenes**, no la base de datos. Un cambio de esquema incompatible requiere restaurar un backup (SCRUM-38).
