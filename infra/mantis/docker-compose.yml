@@ -48,7 +48,8 @@ services:
       MANTIS_DB_USER: mantis
       MANTIS_DB_PASS: ${MANTIS_DB_PASS:?Definir MANTIS_DB_PASS}
       MANTIS_CRYPTO_SALT: ${MANTIS_CRYPTO_SALT:?Definir MANTIS_CRYPTO_SALT}
-      MANTIS_PATH: http://localhost:${MANTIS_HOST_PORT:-8990}/
+      # "auto" = URL según el host de cada pedido (localhost o Tailscale). Ver entrypoint.sh.
+      MANTIS_PATH: ${MANTIS_PATH:-http://localhost:${MANTIS_HOST_PORT:-8990}/}
     # Acceso restringido: solo localhost de la PC (administración remota por Tailscale, SCRUM-61).
     ports:
       - "127.0.0.1:${MANTIS_HOST_PORT:-8990}:80"

@@ -22,7 +22,13 @@ cat > /var/www/html/config/config_inc.php <<EOF
 \$g_db_username            = '$(php_str "$MANTIS_DB_USER")';
 \$g_db_password            = '$(php_str "$MANTIS_DB_PASS")';
 \$g_crypto_master_salt     = '$(php_str "$MANTIS_CRYPTO_SALT")';
-\$g_path                   = '$(php_str "$MANTIS_PATH")';
+$(if [ "$MANTIS_PATH" = "auto" ]; then
+    # MANTIS_PATH=auto: Mantis arma las URL con el host de cada pedido (localhost o el nombre de
+    # Tailscale), para administrarlo desde la PC servidor y desde la tailnet (SCRUM-61).
+    echo "# \$g_path sin fijar (MANTIS_PATH=auto): se deduce del host de cada pedido."
+  else
+    echo "\$g_path                   = '$(php_str "$MANTIS_PATH")';"
+  fi)
 
 \$g_default_timezone       = 'America/Argentina/Buenos_Aires';
 \$g_default_language       = 'spanish';

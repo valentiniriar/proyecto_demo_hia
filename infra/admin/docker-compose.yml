@@ -1,0 +1,33 @@
+# Acceso administrativo a la base de PRODUCCIÓN (SCRUM-61).
+#
+# La base de producción no publica puertos. Este puente la expone SOLO en 127.0.0.1:5436 de la PC
+# servidor, para un cliente gráfico (DBeaver/pgAdmin) en la misma PC o, a través de Tailscale Serve,
+# en los dispositivos de la tailnet del equipo. Nunca se publica en 0.0.0.0 ni por Cloudflare.
+#
+#   docker compose -f infra/admin/docker-compose.yml up -d     (o: bash scripts/infra.sh levantar)
+#   Conexión: host 127.0.0.1 · puerto 5436 · base y usuario: DB_NAME / DB_USER de C:\gymhub\.env.prod
+name: gymhub-admin
+
+services:
+  db-puente:
+    image: alpine/socat:1.8.0.3
+    container_name: gymhub_db_puente
+    restart: unless-stopped
+    command: ["TCP-LISTEN:5432,fork,reuseaddr", "TCP:db:5432"]
+    ports:
+      - "127.0.0.1:${DB_PUENTE_PORT:-5436}:5432"
+    networks: [prod_db]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 32M
+
+networks:
+  prod_db:
+    external: true
+    name: gymhub_prod_db_net
