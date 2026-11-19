@@ -1,0 +1,6 @@
+# Falsos positivos de gitleaks revisados a mano. Una línea por hallazgo: <commit>:<archivo>:<regla>:<línea>
+# Agregar SOLO hallazgos verificados que no sean secretos reales. Si es un secreto real: rotarlo, no ignorarlo.
+
+# SCRUM-73/74: ejemplo de la documentación `curl -u evillagran:'<contraseña>'` (texto de ejemplo, sin
+# contraseña real). Ya se quitó del documento; queda solo en el historial del commit 4e872eb.
+4e872ebaa119ddb47a0abef860c8f7b65ad1c6dd:docs/SCRUM-73-74-nextcloud.md:curl-auth-user:98
