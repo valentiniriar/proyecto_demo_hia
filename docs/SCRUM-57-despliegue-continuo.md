@@ -32,10 +32,10 @@ flowchart LR
 
 - **El CD solo arranca si el CI pasó** (`workflow_run` + `conclusion == success`): un cambio que rompe build, tests, auditoría o gitleaks nunca se publica.
 - **Tag = SHA del commit**: cada versión es inmutable y trazable al commit; `latest` es solo una comodidad.
-- **Los secretos de producción no están en GitHub**: viven en `C:\gymhub\.env.prod` en el servidor. El pipeline solo usa el `GITHUB_TOKEN` efímero (permisos `packages: write` para publicar, `packages: read` para descargar).
+- **Los secretos de producción no están en GitHub**: viven en `produccion/.env.prod` en el servidor. El pipeline solo usa el `GITHUB_TOKEN` efímero (permisos `packages: write` para publicar, `packages: read` para descargar).
 - **Runner self-hosted en vez de SSH**: el servidor abre una conexión saliente hacia GitHub; no hay que exponer SSH ni abrir puertos (igual que el túnel de Cloudflare).
 - **El túnel no se toca al desplegar**: `deploy.sh` recrea solo `db`, `db-replica`, `backup`, `backend` y `frontend`. Si se recreara `cloudflared`, el túnel rápido cambiaría de URL.
-- **Producción aislada de desarrollo en la misma PC**: proyecto Compose `gymhub`, contenedores `gymhub_*_prod`, redes `gymhub_prod_*` y volúmenes `gymhub_prod_*`. El frontend escucha solo en `127.0.0.1:80`; desde Internet se entra por el túnel.
+- **Producción aislada de desarrollo en la misma PC**: proyecto Compose `gymhub-produccion`, contenedores `gymhub_*_prod`, redes `gymhub_prod_*` y volúmenes `gymhub_prod_*`. El frontend escucha solo en `127.0.0.1:80`; desde Internet se entra por el túnel.
 
 ## 3. Puesta en marcha del servidor (una sola vez)
 
@@ -43,7 +43,7 @@ Requisitos en la PC servidor: Docker Desktop abierto, Git para Windows (aporta `
 
 ### 3.1 Secretos de producción
 
-Crear `C:\gymhub\.env.prod` (fuera del repo) con contraseñas propias:
+Crear `produccion/.env.prod` (carpeta `produccion/` del proyecto, ignorada por Git) con contraseñas propias:
 
 ```ini
 DB_NAME=gymhub
@@ -94,7 +94,7 @@ Muestra la URL `https://….trycloudflare.com`. Los despliegues posteriores no l
 |---|---|
 | Desplegar | Mergear un PR de release `develop → main`. El resto es automático. |
 | Ver la versión en producción | `bash scripts/deploy.sh --estado` (versión actual y últimos 10 despliegues) |
-| Historial | `C:\gymhub\historial-despliegues.log` y *Actions → CD* / *Environments → produccion* en GitHub |
+| Historial | `produccion/historial-despliegues.log` y *Actions → CD* / *Environments → produccion* en GitHub |
 | Rollback manual | *Actions → CD → Run workflow*, `tag` = SHA completo de la versión anterior (`git log main --format=%H`). O en el servidor: `bash scripts/deploy.sh <SHA>` |
 
 ### Rollback automático
@@ -104,7 +104,7 @@ Muestra la URL `https://….trycloudflare.com`. Los despliegues posteriores no l
 1. `docker compose up --wait` deja `db`, `db-replica` y `backend` en estado *healthy* (healthchecks de Postgres y `HEALTHCHECK` del backend sobre `/api/health`), y
 2. `http://127.0.0.1/api/health` responde **200 a través de Nginx** (frontend → backend → base de datos).
 
-Si algo falla, vuelve a levantar la versión registrada en `C:\gymhub\version-desplegada.txt`, la verifica de la misma forma y termina con error para que el job quede en rojo.
+Si algo falla, vuelve a levantar la versión registrada en `produccion/version-desplegada.txt`, la verifica de la misma forma y termina con error para que el job quede en rojo.
 
 ## 5. Evidencia de la prueba local (18/11/2026)
 
