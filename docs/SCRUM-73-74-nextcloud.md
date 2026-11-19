@@ -93,12 +93,6 @@ Cada contraseña se reparte por un canal privado y el integrante la cambia al en
 ### 3.3 Subir documentos
 
 - **Web:** entrar con un usuario de `equipo`, abrir la carpeta y arrastrar los archivos. Los `.md` se pueden ver y editar desde el navegador.
-- **WebDAV (scripts o carga masiva):**
-  ```bash
-  curl -u evillagran:'<contraseña>' -T docs/SCRUM-45-cluster-streaming-replication.md \
-    "http://localhost:8082/remote.php/dav/files/evillagran/06-Replicaci%C3%B3n/SCRUM-45-cluster-streaming-replication.md"
-  ```
-  Los nombres de carpeta con tilde van codificados (`ó` → `%C3%B3`). Una respuesta 201 indica archivo nuevo; 204, que reemplazó uno existente.
 - **Cliente de escritorio de Nextcloud:** servidor `http://localhost:8082` (o la URL de Tailscale) para sincronizar carpetas.
 
 **Persistencia:**
