@@ -22,7 +22,7 @@ flowchart LR
     subgraph server["PC servidor · Docker"]
         CFD[cloudflared] --> NGX[Nginx :8080<br/>app de producción]
         NGX --> API[backend] --> DB[(PostgreSQL<br/>primario + réplica)]
-        TS[Tailscale Serve] -->|127.0.0.1| ADM["Grafana · Prometheus · Alertmanager<br/>Mantis · n8n · puente a la base :5436"]
+        TS[Tailscale Serve] -->|127.0.0.1| ADM["Grafana · Prometheus · Alertmanager<br/>Mantis · n8n · Nextcloud · puente a la base :5436"]
         ADM --> DB
     end
 
@@ -70,6 +70,7 @@ Requisito previo: app de producción desplegada (`docs/SCRUM-57-despliegue-conti
 | Alertmanager | http://127.0.0.1:9093/ | — |
 | Mantis | http://127.0.0.1:8990/ | `infra/mantis/credenciales.local.json` |
 | n8n | http://127.0.0.1:5679/ | Cuenta *owner* creada en el primer ingreso |
+| Nextcloud | http://127.0.0.1:8082/ | `infra/nextcloud/credenciales.local.json` (SCRUM-73/74) |
 | Base de producción | `127.0.0.1:5436`, base `gymhub` | `DB_USER` / `DB_PASS` de `produccion/.env.prod` |
 
 ### 3.2 Desde cualquier lugar, por la tailnet
@@ -84,6 +85,7 @@ Igual que la tabla anterior, cambiando `127.0.0.1` por **`gymhub-servidor.tailec
 | Alertmanager | http://gymhub-servidor.tailec3350.ts.net:9093/ |
 | Mantis | http://gymhub-servidor.tailec3350.ts.net:8990/ |
 | n8n | http://gymhub-servidor.tailec3350.ts.net:5679/ |
+| Nextcloud | http://gymhub-servidor.tailec3350.ts.net:8082/ |
 | Base (pgAdmin/DBeaver) | host `gymhub-servidor.tailec3350.ts.net`, puerto `5436` |
 
 El tráfico viaja cifrado por WireGuard aunque las URL sean `http://`.
