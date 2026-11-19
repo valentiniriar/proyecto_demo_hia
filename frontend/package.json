@@ -17,17 +17,17 @@
     "@angular/forms": "^21.2.26",
     "@angular/platform-browser": "^21.2.26",
     "@angular/router": "^21.2.26",
-    "bootstrap": "^5.3.8",
-    "chart.js": "^4.5.1",
+    "bootstrap": "^5.3.9",
+    "chart.js": "^4.6.1",
     "rxjs": "~7.8.0",
-    "tslib": "^2.3.0"
+    "tslib": "^2.9.1"
   },
   "devDependencies": {
     "@angular/build": "^21.2.29",
     "@angular/cli": "^21.2.29",
     "@angular/compiler-cli": "^21.2.26",
     "jsdom": "^28.0.0",
-    "prettier": "^3.8.1",
+    "prettier": "^3.10.1",
     "typescript": "~5.9.2",
     "vitest": "^4.0.8"
   }

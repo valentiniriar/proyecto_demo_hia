@@ -1,0 +1,46 @@
+# Monitoreo del stack de PRODUCCIÓN (proyecto Compose "gymhub", SCRUM-57/61).
+# Se suma al compose de monitoreo; no cambia el modo de laboratorio original.
+#
+#   docker compose -f infra/monitoring/docker-compose.yml -f infra/monitoring/docker-compose.prod.yml up -d
+#   (o: bash scripts/infra.sh levantar)
+#
+# Los exporters entran a las redes internas de producción (gymhub_prod_*): la base de producción
+# sigue sin publicar puertos. El usuario de métricas (gymhub_monitor) solo tiene el rol pg_monitor.
+
+services:
+  prometheus:
+    # Misma ruta destino: reemplaza al prometheus.yml de laboratorio por el de producción.
+    volumes:
+      - ./prometheus/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+    networks: [monitoring, prod_web]
+
+  cadvisor:
+    # Docker Desktop (Windows/macOS) expone el socket del daemon en /var/run/docker.sock.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  postgres-exporter-primary:
+    environment:
+      DATA_SOURCE_URI: 'db:5432/${PG_DB}?sslmode=disable'
+    networks: [monitoring, prod_db]
+
+  postgres-exporter-replica:
+    image: prometheuscommunity/postgres-exporter:v0.20.1
+    container_name: gymhub-postgres-exporter-replica-prod
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_URI: 'db-replica:5432/${PG_DB}?sslmode=disable'
+      DATA_SOURCE_USER: ${PG_EXPORTER_USER}
+      DATA_SOURCE_PASS: ${PG_EXPORTER_PASSWORD}
+    networks: [monitoring, prod_db]
+
+  blackbox-exporter:
+    networks: [monitoring, prod_web]
+
+networks:
+  prod_db:
+    external: true
+    name: gymhub_prod_db_net
+  prod_web:
+    external: true
+    name: gymhub_prod_frontend_net
