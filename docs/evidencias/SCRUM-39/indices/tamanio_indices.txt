@@ -1,0 +1,44 @@
+==> Tablas: heap, indices y total
+       tabla       |    heap    | indices |  total  
+-------------------+------------+---------+---------
+ usuarios          | 1049 MB    | 669 MB  | 1718 MB
+ rutinas           | 821 MB     | 241 MB  | 1062 MB
+ pagos             | 541 MB     | 492 MB  | 1033 MB
+ suscripciones     | 529 MB     | 241 MB  | 770 MB
+ tarifas           | 438 MB     | 251 MB  | 689 MB
+ usuario_roles     | 207 MB     | 168 MB  | 376 MB
+ rutina_ejercicios | 207 MB     | 129 MB  | 336 MB
+ ejercicios        | 32 kB      | 16 kB   | 88 kB
+ roles             | 8192 bytes | 32 kB   | 72 kB
+(9 rows)
+
+==> Indices: tamano y cantidad de escaneos
+       tabla       |          indice           | tamanio |   bytes   | idx_scan 
+-------------------+---------------------------+---------+-----------+----------
+ ejercicios        | ejercicios_pkey           | 16 kB   |     16384 |       21
+ pagos             | idx_pagos_fecha_id        | 181 MB  | 189276160 |        0
+ pagos             | uq_pagos_transaccion      | 181 MB  | 189276160 |        0
+ pagos             | pagos_pkey                | 131 MB  | 137035776 |        3
+ roles             | roles_pkey                | 16 kB   |     16384 |       15
+ roles             | roles_nombre_key          | 16 kB   |     16384 |        0
+ rutina_ejercicios | rutina_ejercicios_pkey    | 129 MB  | 134791168 |       16
+ rutinas           | rutinas_pkey              | 129 MB  | 134791168 |       16
+ rutinas           | idx_rutinas_usuario       | 112 MB  | 117694464 |        0
+ suscripciones     | suscripciones_pkey        | 129 MB  | 134791168 |   100025
+ suscripciones     | idx_suscripciones_usuario | 112 MB  | 117686272 |        0
+ tarifas           | tarifas_pkey              | 133 MB  | 139288576 |   100338
+ tarifas           | idx_tarifas_suscripcion   | 118 MB  | 123994112 |        0
+ usuario_roles     | usuario_roles_pkey        | 129 MB  | 134791168 |       13
+ usuario_roles     | idx_usuario_roles_rol     | 40 MB   |  41598976 |        0
+ usuarios          | usuarios_email_key        | 321 MB  | 336297984 |        2
+ usuarios          | usuarios_dni_key          | 181 MB  | 189276160 |        1
+ usuarios          | usuarios_pkey             | 129 MB  | 134791168 |       25
+ usuarios          | idx_usuarios_estado       | 40 MB   |  41598976 |        0
+(19 rows)
+
+==> Base completa
+  base   
+---------
+ 5993 MB
+(1 row)
+
