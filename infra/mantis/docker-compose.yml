@@ -7,7 +7,8 @@
 #   → http://localhost:8990  (solo desde esta PC; NO se publica a Internet ni a la LAN)
 #
 # n8n se conecta por la red "gymhub_tools_net" usando http://mantis/api/rest/...
-name: gymhub-mantis
+# Grupo "gymhub-herramientas" en Docker Desktop (con n8n y el puente a la base; antes gymhub-mantis).
+name: gymhub-herramientas
 
 services:
   mantis-db:

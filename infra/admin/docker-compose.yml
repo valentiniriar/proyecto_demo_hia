@@ -5,8 +5,9 @@
 # en los dispositivos de la tailnet del equipo. Nunca se publica en 0.0.0.0 ni por Cloudflare.
 #
 #   docker compose -f infra/admin/docker-compose.yml up -d     (o: bash scripts/infra.sh levantar)
-#   Conexión: host 127.0.0.1 · puerto 5436 · base y usuario: DB_NAME / DB_USER de C:\gymhub\.env.prod
-name: gymhub-admin
+#   Conexión: host 127.0.0.1 · puerto 5436 · base y usuario: DB_NAME / DB_USER de produccion/.env.prod
+# Grupo "gymhub-herramientas" en Docker Desktop (con Mantis y n8n).
+name: gymhub-herramientas
 
 services:
   db-puente:

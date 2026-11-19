@@ -64,13 +64,13 @@ Requisito previo: app de producción desplegada (`docs/SCRUM-57-despliegue-conti
 
 | Servicio | URL | Credenciales |
 |---|---|---|
-| App de producción | http://127.0.0.1/ | `C:\gymhub\credenciales-produccion.txt` |
+| App de producción | http://127.0.0.1/ | `produccion/credenciales-produccion.txt` |
 | Grafana (*GymHub \| Producción*) | http://127.0.0.1:3001/ | `admin` / `GF_SECURITY_ADMIN_PASSWORD` en `infra/monitoring/.env` |
 | Prometheus | http://127.0.0.1:9091/ | — |
 | Alertmanager | http://127.0.0.1:9093/ | — |
 | Mantis | http://127.0.0.1:8990/ | `infra/mantis/credenciales.local.json` |
 | n8n | http://127.0.0.1:5679/ | Cuenta *owner* creada en el primer ingreso |
-| Base de producción | `127.0.0.1:5436`, base `gymhub` | `DB_USER` / `DB_PASS` de `C:\gymhub\.env.prod` |
+| Base de producción | `127.0.0.1:5436`, base `gymhub` | `DB_USER` / `DB_PASS` de `produccion/.env.prod` |
 
 ### 3.2 Desde cualquier lugar, por la tailnet
 

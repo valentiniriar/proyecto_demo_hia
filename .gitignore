@@ -34,3 +34,7 @@ dumps/
 .DS_Store
 Thumbs.db
 .idea/
+
+# Secretos y estado del servidor de producción (ver produccion/LEEME.md). Solo el LEEME se versiona.
+produccion/*
+!produccion/LEEME.md

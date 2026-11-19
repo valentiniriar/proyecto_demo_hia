@@ -8,21 +8,36 @@
 # Lo ejecuta el job "desplegar" de .github/workflows/cd.yml en el runner self-hosted,
 # pero también se puede correr a mano en el servidor (por ejemplo, para un rollback).
 #
-# Variables (opcionales):
-#   GYMHUB_ENV_FILE  archivo con los secretos de producción (default C:/gymhub/.env.prod; nunca en el repo)
+# Secretos y estado del servidor (versión desplegada, historial): carpeta produccion/ del repo
+# del servidor (ignorada por Git, ver produccion/LEEME.md). Se busca, en orden:
+#   1. GYMHUB_ENV_FILE   ruta explícita (el runner la recibe de C:\actions-runner\gymhub-env.cmd,
+#                        porque el job corre en su propia copia del repo, no en la carpeta del proyecto)
+#   2. ./produccion/.env.prod   cuando se ejecuta a mano desde la carpeta del proyecto
+#   3. C:/gymhub/.env.prod      ubicación anterior (compatibilidad)
+#
+# Otras variables (opcionales):
 #   HEALTH_URL       URL que se verifica tras desplegar (default http://127.0.0.1/api/health, pasa por Nginx)
 #   SKIP_PULL=1      no descarga de GHCR (para probar con imágenes construidas localmente)
 set -euo pipefail
 export MSYS_NO_PATHCONV=1   # Git Bash en Windows: no reescribir rutas tipo /api/health
 cd "$(dirname "$0")/.."
+# Ruta del repo en formato que entiende Docker en Windows (C:/...); en Linux/macOS, la de siempre.
+REPO_DIR="$(pwd -W 2>/dev/null || pwd)"
 
-ENV_FILE="${GYMHUB_ENV_FILE:-C:/gymhub/.env.prod}"
+ENV_FILE="${GYMHUB_ENV_FILE:-}"
+if [ -z "$ENV_FILE" ]; then
+  for candidato in "$REPO_DIR/produccion/.env.prod" "C:/gymhub/.env.prod"; do
+    [ -f "$candidato" ] && { ENV_FILE="$candidato"; break; }
+  done
+fi
+ENV_FILE="${ENV_FILE:-$REPO_DIR/produccion/.env.prod}"
 ESTADO_DIR="$(dirname "$ENV_FILE")"
 ACTUAL="$ESTADO_DIR/version-desplegada.txt"
 HISTORIAL="$ESTADO_DIR/historial-despliegues.log"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1/api/health}"
 
-COMPOSE=(docker compose -p gymhub --env-file "$ENV_FILE"
+# Proyecto Compose = grupo "gymhub-produccion" en Docker Desktop: app + cluster de base + backup + túnel.
+COMPOSE=(docker compose -p gymhub-produccion --env-file "$ENV_FILE"
          -f compose.yaml -f compose.prod.yaml -f compose.tunnel.yaml --profile prod)
 # El túnel (cloudflared) NO está en la lista: si se recreara, el túnel rápido cambiaría de URL.
 SERVICIOS=(db db-replica backup backend frontend)
@@ -36,7 +51,7 @@ if [ "${1:-}" = "--estado" ]; then
   exit 0
 fi
 
-[ -f "$ENV_FILE" ] || { log "✖ Falta $ENV_FILE (secretos de producción). Ver docs/SCRUM-57-despliegue-continuo.md"; exit 1; }
+[ -f "$ENV_FILE" ] || { log "✖ Falta $ENV_FILE (secretos de producción). Ver produccion/LEEME.md"; exit 1; }
 
 if [ "${1:-}" = "--tunel" ]; then
   # --no-deps: no recrea el frontend; solo agrega el túnel apuntando a frontend:8080.

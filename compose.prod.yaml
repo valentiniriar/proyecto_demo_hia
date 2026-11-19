@@ -4,8 +4,9 @@
 # IMAGE_TAG elige la versión a desplegar: el SHA del commit que publicó el CD (SCRUM-56).
 # Así un despliegue o un rollback es "levantar el SHA X". Sin IMAGE_TAG se usa latest.
 #
-# Lo despliega scripts/deploy.sh (llamado por .github/workflows/cd.yml) como proyecto "gymhub":
-#   IMAGE_TAG=<sha> docker compose -p gymhub --env-file C:/gymhub/.env.prod \
+# Lo despliega scripts/deploy.sh (llamado por .github/workflows/cd.yml) como proyecto
+# "gymhub-produccion" (grupo de Docker Desktop: app + cluster de base + backup + túnel):
+#   IMAGE_TAG=<sha> docker compose -p gymhub-produccion --env-file produccion/.env.prod \
 #     -f compose.yaml -f compose.prod.yaml -f compose.tunnel.yaml --profile prod up -d ...
 
 services:

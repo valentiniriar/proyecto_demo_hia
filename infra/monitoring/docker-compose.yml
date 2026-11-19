@@ -1,4 +1,6 @@
-name: gymhub-scrum66
+# Grupo "gymhub-monitoreo" en Docker Desktop (antes gymhub-scrum66). Los volúmenes conservan sus
+# nombres originales (ver al final), así cambiar el nombre del proyecto no pierde datos.
+name: gymhub-monitoreo
 services:
   prometheus:
     image: prom/prometheus:v3.5.0
@@ -103,5 +105,8 @@ networks:
     driver: bridge
 volumes:
   prometheus_data:
+    name: gymhub-scrum66_prometheus_data
   grafana_data:
+    name: gymhub-scrum66_grafana_data
   alertmanager_data:
+    name: gymhub-scrum66_alertmanager_data

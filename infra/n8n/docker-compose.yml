@@ -1,4 +1,5 @@
-name: gymhub-scrum75
+# Grupo "gymhub-herramientas" en Docker Desktop (con Mantis y el puente a la base; antes gymhub-scrum75).
+name: gymhub-herramientas
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n:stable
@@ -28,3 +29,4 @@ services:
       - n8n_data:/home/node/.n8n
 volumes:
   n8n_data:
+    name: gymhub-scrum75_n8n_data   # nombre original: renombrar el proyecto no pierde los datos
