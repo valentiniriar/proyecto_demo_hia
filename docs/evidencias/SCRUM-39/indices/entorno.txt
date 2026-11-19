@@ -1,0 +1,10 @@
+inicio: 2026-11-19 01:33:44 UTC
+usuario_id: 21037  suscripcion_id: 3727420  corridas: 3  reiniciar: 1  condicionales: 1
+PostgreSQL 16.16 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+effective_cache_size = 196608
+jit = on
+max_parallel_workers_per_gather = 2
+random_page_cost = 1.1
+shared_buffers = 65536
+work_mem = 10240
+fin: 2026-11-19 01:38:18 UTC
