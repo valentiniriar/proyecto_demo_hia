@@ -10,12 +10,12 @@
 # Grupos (proyectos Compose) que muestra Docker Desktop:
 #   gymhub-produccion   app + cluster de base (primario/réplica) + backup + túnel  → scripts/deploy.sh / CD
 #   gymhub-monitoreo    Prometheus, Grafana, Alertmanager y exporters             → este script
-#   gymhub-herramientas Mantis (+ su base), n8n y el puente a la base             → este script
+#   gymhub-herramientas Mantis y Nextcloud (+ sus bases), n8n y el puente a la base → este script
 #
-# Primera vez: bash infra/mantis/setup.sh (crea infra/mantis/.env y credenciales).
+# Primera vez: bash infra/mantis/setup.sh y bash infra/nextcloud/setup.sh (crean sus .env y credenciales).
 set -euo pipefail
 export MSYS_NO_PATHCONV=1
-# Mantis, n8n y el puente comparten el proyecto gymhub-herramientas desde archivos distintos:
+# Mantis, Nextcloud, n8n y el puente comparten el proyecto gymhub-herramientas desde archivos distintos:
 # cada uno ve a los otros como "huérfanos". Es esperado; no se eliminan.
 export COMPOSE_IGNORE_ORPHANS=true
 cd "$(dirname "$0")/.."
@@ -27,12 +27,13 @@ MON=(docker compose -f infra/monitoring/docker-compose.yml -f infra/monitoring/d
 MANTIS=(docker compose -f infra/mantis/docker-compose.yml --env-file infra/mantis/.env)
 N8N=(docker compose -f infra/n8n/docker-compose.yml -f infra/n8n/SCRUM-76.n8n.override.example.yml --env-file infra/n8n/.env)
 ADMIN=(docker compose -f infra/admin/docker-compose.yml)
+NC=(docker compose -f infra/nextcloud/docker-compose.yml --env-file infra/nextcloud/.env)
 
 valor() { grep -E "^$2=" "$1" 2>/dev/null | cut -d= -f2- || true; }
 
 requisitos() {
   local falta=0
-  for f in infra/monitoring/.env infra/mantis/.env infra/n8n/.env; do
+  for f in infra/monitoring/.env infra/mantis/.env infra/n8n/.env infra/nextcloud/.env; do
     [ -f "$f" ] || { echo "✖ Falta $f (ver produccion/LEEME.md)"; falta=1; }
   done
   docker network inspect gymhub_prod_db_net >/dev/null 2>&1 \
@@ -46,6 +47,7 @@ case "${1:-estado}" in
     bash infra/monitoring/generar-prod.sh >/dev/null
     echo "→ gymhub-monitoreo";               "${MON[@]}" up -d --quiet-pull 2>&1 | grep -vE "^\s*$" | tail -1
     echo "→ gymhub-herramientas: Mantis";    "${MANTIS[@]}" up -d 2>&1 | tail -1
+    echo "→ gymhub-herramientas: Nextcloud"; "${NC[@]}" up -d 2>&1 | tail -1
     echo "→ gymhub-herramientas: n8n";       "${N8N[@]}" up -d 2>&1 | tail -1
     echo "→ gymhub-herramientas: puente BD"; "${ADMIN[@]}" up -d 2>&1 | tail -1
     # Si el túnel rápido está arriba, Prometheus mide la URL pública.
@@ -56,7 +58,7 @@ case "${1:-estado}" in
     ;;
 
   bajar)
-    "${ADMIN[@]}" down; "${N8N[@]}" down; "${MANTIS[@]}" down; "${MON[@]}" down
+    "${ADMIN[@]}" down; "${N8N[@]}" down; "${NC[@]}" down; "${MANTIS[@]}" down; "${MON[@]}" down
     echo "✔ Monitoreo y herramientas detenidos (datos conservados en sus volúmenes)."
     ;;
 
@@ -94,6 +96,17 @@ case "${1:-estado}" in
       ' infra/mantis/credenciales.local.json 2>/dev/null || echo "  (falta infra/mantis/credenciales.local.json)"
       echo "  Base de Mantis:  mantis / $(valor infra/mantis/.env MANTIS_DB_PASS)   ·   root / $(valor infra/mantis/.env MANTIS_DB_ROOT_PASS)"
       echo
+      echo "== Nextcloud (http://127.0.0.1:$(valor infra/nextcloud/.env NEXTCLOUD_HOST_PORT)/) =="
+      echo "  admin / $(valor infra/nextcloud/.env NEXTCLOUD_ADMIN_PASS)   (administrador)"
+      node -e '
+        const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+        for (const x of c.credenciales_nuevas || []) {
+          if (x.tipo === "usuario") console.log("  " + x.usuario + " / " + x.password + "   (" + x.nombre + " · " + x.grupo + ")");
+          if (x.tipo === "n8n") console.log("  App password de n8n-bot (WebDAV " + x.webdav_url + "): " + x.app_password);
+        }
+      ' infra/nextcloud/credenciales.local.json 2>/dev/null || echo "  (falta infra/nextcloud/credenciales.local.json)"
+      echo "  Base de Nextcloud: nextcloud / $(valor infra/nextcloud/.env NEXTCLOUD_DB_PASS)"
+      echo
       echo "== n8n (http://127.0.0.1:$(valor infra/n8n/.env N8N_HOST_PORT)/) =="
       echo "  Cuenta owner: la que se creó en el primer ingreso (anotarla acá a mano si se desea)."
       echo "  N8N_ENCRYPTION_KEY: $(valor infra/n8n/.env N8N_ENCRYPTION_KEY)"
@@ -107,7 +120,7 @@ case "${1:-estado}" in
   estado)
     PROM=$(valor infra/monitoring/.env PROM_HOST_PORT); GRAF=$(valor infra/monitoring/.env GRAFANA_HOST_PORT)
     ALERT=$(valor infra/monitoring/.env ALERTMANAGER_HOST_PORT); MAN=$(valor infra/mantis/.env MANTIS_HOST_PORT)
-    N8NP=$(valor infra/n8n/.env N8N_HOST_PORT)
+    N8NP=$(valor infra/n8n/.env N8N_HOST_PORT); NCP=$(valor infra/nextcloud/.env NEXTCLOUD_HOST_PORT)
 
     echo "Grupos en Docker Desktop:"
     for g in gymhub-produccion gymhub-monitoreo gymhub-herramientas; do
@@ -128,6 +141,7 @@ case "${1:-estado}" in
     fila "Prometheus"        "http://127.0.0.1:${PROM:-9091}/"  "sin login (solo localhost y Tailscale)"
     fila "Alertmanager"      "http://127.0.0.1:${ALERT:-9093}/" "sin login (solo localhost y Tailscale)"
     fila "Mantis"            "http://127.0.0.1:${MAN:-8990}/"   "infra/mantis/credenciales.local.json"
+    fila "Nextcloud"         "http://127.0.0.1:${NCP:-8082}/status.php" "infra/nextcloud/credenciales.local.json"
     fila "n8n"               "http://127.0.0.1:${N8NP:-5679}/"  "cuenta owner creada en el primer ingreso"
     if docker ps --format '{{.Names}}' | grep -q '^gymhub_db_puente$'; then
       printf '%-7s %-20s %-36s %s\n' "OK" "Base de produccion" "postgresql://127.0.0.1:5436/gymhub" "DB_USER / DB_PASS (produccion/.env.prod)"

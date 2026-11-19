@@ -1,0 +1,28 @@
+Prueba de matriz de permisos · Nextcloud GymHub · 19/11/2026 10:33
+Servidor: http://127.0.0.1:8082/remote.php/dav/files  ·  Contraseñas leídas de infra/nextcloud/credenciales.local.json (no se registran)
+
+── n8n-bot (grupo n8n-servicio, con app password) ──
+       Carpetas que ve en su raíz: Informes-IA 
+OK     n8n-bot ve SOLO Informes-IA en su raíz                                        esperado Informes-IA obtenido Informes-IA
+OK     n8n-bot sube un informe a Informes-IA (PUT)                                    esperado 201         obtenido 201
+OK     n8n-bot modifica su informe (PUT sobre el mismo archivo)                       esperado 204         obtenido 204
+OK     n8n-bot NO puede borrar en Informes-IA (DELETE)                                esperado 403         obtenido 403
+OK     n8n-bot NO accede a 01-Diagnóstico (PROPFIND)                                 esperado 404         obtenido 404
+OK     n8n-bot NO puede escribir en 01-Diagnóstico (PUT)                             esperado 403|404|409 obtenido 404
+OK     n8n-bot NO puede crear un enlace público (OCS shares)                         esperado 403|404     obtenido 403
+── docente (grupo docentes-lectura) ──
+OK     docente lee el informe de Informes-IA (GET)                                    esperado 200         obtenido 200
+OK     docente lista 05-Optimización (PROPFIND)                                      esperado 207         obtenido 207
+OK     docente NO puede subir a 05-Optimización (PUT)                                esperado 403         obtenido 403
+OK     docente NO puede borrar en Informes-IA (DELETE)                                esperado 403         obtenido 403
+── sin-acceso (usuario válido sin ningún grupo): ACCESO DENEGADO ──
+OK     sin-acceso se autentica pero su raíz está vacía (PROPFIND)                  esperado 207         obtenido 207
+OK     sin-acceso NO ve Informes-IA (PROPFIND)                                        esperado 404         obtenido 404
+OK     sin-acceso NO lee el informe (GET)                                             esperado 404         obtenido 404
+OK     sin-acceso NO entra en el espacio de otro usuario (n8n-bot)                    esperado 401|403|404 obtenido 404
+── evillagran (grupo equipo) ──
+OK     equipo sube a 05-Optimización (PUT)                                           esperado 201         obtenido 201
+OK     equipo borra su archivo de 05-Optimización (DELETE)                           esperado 204         obtenido 204
+OK     equipo borra el informe de n8n en Informes-IA (limpieza)                       esperado 204         obtenido 204
+
+RESULTADO: todas las pruebas dieron lo esperado.

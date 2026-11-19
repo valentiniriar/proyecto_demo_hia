@@ -21,7 +21,7 @@ Desde Internet se ve **un solo servicio**: el Nginx del frontend, a través de C
 | Grafana | 3000 | `127.0.0.1:3001` | ✖ | ✖ | ✔ lectura (dashboard) | ✔ | Tailscale o Cloudflare Access |
 | n8n | 5678 | `127.0.0.1:5679` | ✖ | ✖ | ✖ | ✔ | Local o Tailscale |
 | Mantis | 80 | `127.0.0.1:8990` (SCRUM-70) | ✖ | ✖ | ✖ | ✔ (usuarios con rol) | Local o Tailscale |
-| Nextcloud | 80 | Sin publicar | ✖ | ✖ | ✖ | ✔ | Tailscale |
+| Nextcloud | 80 | `127.0.0.1:8082` (SCRUM-73/74) | ✖ | ✖ | ✖ | ✔ (grupo `equipo`) | Local o Tailscale · docentes: solo lectura (grupo `docentes-lectura`) |
 | Métricas de cloudflared | 2000 | Solo red Docker | ✖ | ✖ | ✖ | Prometheus | Interno |
 
 Reglas: mínimo privilegio, cuentas nominales (no compartidas) y ningún panel de administración en la URL pública sin una capa de identidad adelante.

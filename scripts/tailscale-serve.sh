@@ -21,7 +21,7 @@ TS="$(command -v tailscale || echo '/c/Program Files/Tailscale/tailscale.exe')"
 valor() { grep -E "^$2=" "$1" 2>/dev/null | cut -d= -f2- || true; }
 PROM=$(valor infra/monitoring/.env PROM_HOST_PORT); GRAF=$(valor infra/monitoring/.env GRAFANA_HOST_PORT)
 ALERT=$(valor infra/monitoring/.env ALERTMANAGER_HOST_PORT); MAN=$(valor infra/mantis/.env MANTIS_HOST_PORT)
-N8NP=$(valor infra/n8n/.env N8N_HOST_PORT)
+N8NP=$(valor infra/n8n/.env N8N_HOST_PORT); NCP=$(valor infra/nextcloud/.env NEXTCLOUD_HOST_PORT)
 
 # nombre  tipo  puerto-tailnet  destino-local
 SERVICIOS=(
@@ -31,6 +31,7 @@ SERVICIOS=(
   "Alertmanager    http ${ALERT:-9093}     http://127.0.0.1:${ALERT:-9093}"
   "Mantis          http ${MAN:-8990}       http://127.0.0.1:${MAN:-8990}"
   "n8n             http ${N8NP:-5679}      http://127.0.0.1:${N8NP:-5679}"
+  "Nextcloud       http ${NCP:-8082}       http://127.0.0.1:${NCP:-8082}"
   "Base-produccion tcp  5436               tcp://127.0.0.1:5436"
 )
 
