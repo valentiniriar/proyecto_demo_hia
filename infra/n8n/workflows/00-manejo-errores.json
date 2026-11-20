@@ -1,0 +1,62 @@
+{
+  "id": "GymHubErrores001",
+  "name": "00 · Manejo de errores (avisa por mail)",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ],
+      "id": "e610aa88-fe72-4e79-9aec-0ce9589eb721",
+      "name": "Error Trigger"
+    },
+    {
+      "id": "nodo-1",
+      "name": "Avisar error al equipo",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "fromEmail": "n8n@gymhub.local",
+        "toEmail": "equipo@gymhub.local",
+        "subject": "=ERROR en n8n · {{ $json.workflow?.name || \"flujo desconocido\" }}",
+        "emailFormat": "text",
+        "text": "=Falló un flujo de n8n de GymHub.\n\nFlujo: {{ $json.workflow?.name || \"Desconocido\" }}\nNodo: {{ $json.execution?.lastNodeExecuted || \"No disponible\" }}\nError: {{ $json.execution?.error?.message || $json.trigger?.error?.message || \"Sin detalle\" }}\nEjecución: {{ $json.execution?.url || \"-\" }}\n\nRevisar la ejecución en n8n (http://100.65.22.99:5679).",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "gymhubMailpit01",
+          "name": "SMTP Mailpit (interno)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Avisar error al equipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {},
+  "tags": []
+}

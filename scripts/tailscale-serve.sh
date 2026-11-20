@@ -22,6 +22,7 @@ valor() { grep -E "^$2=" "$1" 2>/dev/null | cut -d= -f2- || true; }
 PROM=$(valor infra/monitoring/.env PROM_HOST_PORT); GRAF=$(valor infra/monitoring/.env GRAFANA_HOST_PORT)
 ALERT=$(valor infra/monitoring/.env ALERTMANAGER_HOST_PORT); MAN=$(valor infra/mantis/.env MANTIS_HOST_PORT)
 N8NP=$(valor infra/n8n/.env N8N_HOST_PORT); NCP=$(valor infra/nextcloud/.env NEXTCLOUD_HOST_PORT)
+MPP=$(valor infra/n8n/.env MAILPIT_HOST_PORT)
 
 # nombre  puerto  qué-es
 # Todo se publica en modo TCP (no HTTP): Tailscale reenvía la conexión tal cual. En modo HTTP, Serve
@@ -36,6 +37,8 @@ SERVICIOS=(
   "Mantis          ${MAN:-8990}       web"
   "n8n             ${N8NP:-5679}      web"
   "Nextcloud       ${NCP:-8082}       web"
+  # Mailpit: correos que mandan los flujos de n8n (no salen a Internet).
+  "Mailpit         ${MPP:-8026}       web"
   # Métricas de cloudflared: /quicktunnel devuelve la URL pública vigente del túnel rápido.
   "Tunel-URL       2000               web"
   # Página de estado de HAProxy: qué nodo de Patroni es el líder (en verde). Se actualiza cada 2 s.

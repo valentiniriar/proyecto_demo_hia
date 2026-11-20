@@ -1,0 +1,265 @@
+{
+  "id": "GymHubBackups001",
+  "name": "02 · Verificación del backup diario",
+  "active": false,
+  "nodes": [
+    {
+      "id": "nodo-1",
+      "name": "Todos los días 04:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 4 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nodo-2",
+      "name": "Ejecutar ahora (prueba)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "nodo-3",
+      "name": "Leer latest_status.json",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/backups/latest_status.json",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "nodo-4",
+      "name": "Extraer JSON",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "operation": "fromJson",
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "id": "nodo-5",
+      "name": "Validar antigüedad y estado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Valida el estado que escribe database/backup/backup.sh. Sin archivo o JSON ilegible = fallo.\nconst s = $json.data && typeof $json.data === 'object' ? $json.data : {};\nconst status = s.status || ($json.error ? 'not_found' : 'unknown');\nconst ts = s.timestamp ? new Date(s.timestamp) : null;\nconst horas = ts && !isNaN(ts) ? (Date.now() - ts.getTime()) / 3600000 : 999;\nconst problemas = [];\nif (status !== 'success') problemas.push(`estado \"${status}\"`);\nif (horas >= 26) problemas.push(`último backup hace ${Math.round(horas)} h (máximo 26 h)`);\nif (status === 'success' && (!s.size || /^0(\\.0)?[A-Z]?$/.test(String(s.size)))) problemas.push('archivo vacío');\nreturn [{ json: { valido: problemas.length === 0, problemas: problemas.join('; '), status,\n  archivo: s.filename || 'ninguno', tamanio: s.size || '0', duracion_s: s.duration_seconds ?? null,\n  horas: Math.round(horas), timestamp: s.timestamp || 'N/A' } }];"
+      }
+    },
+    {
+      "id": "nodo-6",
+      "name": "¿Backup válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.valido }}",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nodo-7",
+      "name": "Registrar OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { resultado: 'BACKUP OK', ...$input.first().json } }];"
+      }
+    },
+    {
+      "id": "nodo-8",
+      "name": "Crear incidencia en Mantis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://mantis/api/rest/issues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  project: { name: 'GymHub' }, category: { name: 'Base de datos' },\n  severity: { name: 'major' }, priority: { name: 'high' }, reproducibility: { name: 'have not tried' },\n  summary: '[n8n] Falló la verificación del backup diario de producción',\n  description: 'El flujo 2 de n8n detectó un problema con el backup de las 03:00.\\n\\nProblemas: ' + $json.problemas +\n    '\\nEstado: ' + $json.status + '\\nArchivo: ' + $json.archivo + '\\nTamaño: ' + $json.tamanio +\n    '\\nFecha del último backup: ' + $json.timestamp,\n  additional_information: 'Revisar: docker logs gymhub_backup_prod y /backups/backup.log. Restaurar: database/backup/restore.sh',\n  tags: [{ name: 'backup' }, { name: 'n8n' }]\n}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gymhubMantisBot",
+          "name": "Mantis - token n8n-bot"
+        }
+      }
+    },
+    {
+      "id": "nodo-9",
+      "name": "Avisar al responsable",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "fromEmail": "n8n@gymhub.local",
+        "toEmail": "equipo@gymhub.local",
+        "subject": "=[GymHub] Backup diario con problemas · incidencia #{{$json.issue.id}}",
+        "emailFormat": "html",
+        "html": "=<h2>Backup diario: verificación fallida</h2><p><b>Problemas:</b> {{ $(\"Validar antigüedad y estado\").item.json.problemas }}</p><p>Se abrió la incidencia <a href=\"http://100.65.22.99:8990/view.php?id={{$json.issue.id}}\">#{{$json.issue.id}}</a> en Mantis.</p><p>Notificación automática del flujo 2 de n8n.</p>",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "gymhubMailpit01",
+          "name": "SMTP Mailpit (interno)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Todos los días 04:00": {
+      "main": [
+        [
+          {
+            "node": "Leer latest_status.json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar ahora (prueba)": {
+      "main": [
+        [
+          {
+            "node": "Leer latest_status.json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer latest_status.json": {
+      "main": [
+        [
+          {
+            "node": "Extraer JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer JSON": {
+      "main": [
+        [
+          {
+            "node": "Validar antigüedad y estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar antigüedad y estado": {
+      "main": [
+        [
+          {
+            "node": "¿Backup válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Backup válido?": {
+      "main": [
+        [
+          {
+            "node": "Registrar OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Crear incidencia en Mantis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear incidencia en Mantis": {
+      "main": [
+        [
+          {
+            "node": "Avisar al responsable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "errorWorkflow": "GymHubErrores001"
+  },
+  "pinData": {},
+  "tags": []
+}

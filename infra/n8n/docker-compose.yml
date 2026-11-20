@@ -1,10 +1,27 @@
-# Grupo "gymhub-herramientas" en Docker Desktop (con Mantis y el puente a la base; antes gymhub-scrum75).
+# Automatización con n8n (SCRUM-75/76/77/79/84) · grupo "gymhub-herramientas" en Docker Desktop.
+#
+#   Primera vez y después de cambiar flujos o credenciales:  bash infra/n8n/configurar.sh
+#   (o: bash scripts/infra.sh levantar, que levanta este compose)
+#
+# Servicios:
+#   n8n         editor y webhooks. Solo en 127.0.0.1 (remoto por Tailscale, SCRUM-61).
+#   mailpit     servidor SMTP INTERNO: atrapa los correos de los flujos y los muestra en una web
+#               (127.0.0.1:8026). No envía nada a Internet: "notificar al responsable" sin un proveedor real.
+#   analizador  componente Python del flujo 3: detecta anomalías en las métricas (sin servicios externos).
+#
+# Redes de n8n (todas internas de Docker, ninguna publica puertos):
+#   tools       Mantis (crear incidencias), Nextcloud (subir informes), Mailpit, analizador.
+#   monitoring  Prometheus (leer métricas) y Alertmanager (que le manda las alertas por webhook).
+#   prod_web    el backend de producción le manda los eventos de seguridad a http://n8n:5678.
 name: gymhub-herramientas
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:stable
+    image: docker.n8n.io/n8nio/n8n:2.48.5     # versión fija (antes :stable): sin actualizaciones sorpresa
     container_name: gymhub-n8n-scrum75
-    restart: 'no'
+    restart: unless-stopped                   # antes 'no': no volvía solo tras reiniciar el servidor
+    depends_on:
+      - mailpit
+      - analizador
     # Editor/webhooks SOLO locales: nunca 0.0.0.0 ni puertos públicos.
     ports:
       - '127.0.0.1:${N8N_HOST_PORT:-5679}:5678'
@@ -17,16 +34,85 @@ services:
       N8N_PORT: '5678'
       N8N_PROTOCOL: http
       N8N_LISTEN_ADDRESS: 0.0.0.0
-      N8N_EDITOR_BASE_URL: 'http://localhost:${N8N_HOST_PORT:-5679}/'
-      WEBHOOK_URL: 'http://localhost:${N8N_HOST_PORT:-5679}/'
-      N8N_SECURE_COOKIE: 'false' # SOLO entorno local HTTP en 127.0.0.1
+      # URL con la que n8n arma los links (editor, aprobaciones del flujo 3). Por defecto localhost; en el
+      # servidor, N8N_PUBLIC_BASE_URL=http://<IP de Tailscale>:5679/ para que funcionen desde la tailnet.
+      N8N_EDITOR_BASE_URL: '${N8N_PUBLIC_BASE_URL:-http://localhost:5679/}'
+      N8N_WEBHOOK_URL: '${N8N_PUBLIC_BASE_URL:-http://localhost:5679/}'
+      N8N_SECURE_COOKIE: 'false' # SOLO HTTP en 127.0.0.1 / tailnet (WireGuard cifra el tráfico)
       N8N_DIAGNOSTICS_ENABLED: 'false'
       N8N_PERSONALIZATION_ENABLED: 'false'
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: 'true'
       N8N_BLOCK_ENV_ACCESS_IN_NODE: 'true'
       N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: 'true'
+      # Los nodos de archivos solo pueden leer los backups (flujo 2), nada más del contenedor.
+      N8N_RESTRICT_FILE_ACCESS_TO: /backups
+      # Se guardan todas las ejecuciones (exitosas y fallidas) 14 días: registro de ejecuciones y errores.
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_PRUNE: 'true'
+      EXECUTIONS_DATA_MAX_AGE: '336'
     volumes:
       - n8n_data:/home/node/.n8n
+      # Estado del último backup (latest_status.json), solo lectura (flujo 2).
+      - prod_backups:/backups:ro
+    networks:
+      default: {}
+      tools: {}
+      monitoring: {}
+      prod_web:
+        aliases: [n8n]
+
+  mailpit:
+    image: axllent/mailpit:v1.33.0
+    container_name: gymhub-mailpit
+    restart: unless-stopped
+    environment:
+      TZ: America/Argentina/Jujuy
+      MP_MAX_MESSAGES: '500'
+      MP_SMTP_AUTH_ACCEPT_ANY: 'true'      # SMTP solo en la red interna; no es un relay hacia afuera
+      MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
+    ports:
+      - '127.0.0.1:${MAILPIT_HOST_PORT:-8026}:8025'   # web para ver los correos (por Tailscale)
+    networks:
+      tools:
+        aliases: [mailpit]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+
+  analizador:
+    build: ./analizador
+    image: gymhub-analizador:1.0
+    container_name: gymhub-analizador
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks:
+      tools:
+        aliases: [analizador]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
 volumes:
   n8n_data:
     name: gymhub-scrum75_n8n_data   # nombre original: renombrar el proyecto no pierde los datos
+  prod_backups:
+    external: true
+    name: gymhub_prod_db_backups
+
+networks:
+  tools:
+    external: true
+    name: gymhub_tools_net
+  monitoring:
+    external: true
+    name: gymhub-monitoreo_monitoring
+  prod_web:
+    external: true
+    name: gymhub_prod_frontend_net
