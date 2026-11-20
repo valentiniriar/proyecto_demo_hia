@@ -3,7 +3,7 @@
 #  SCRUM-39.1 - Comparativa de consultas sin indice vs con indice
 #
 #  Requisitos:
-#    - Dataset de SCRUM-35 cargado en demo_hia_db_dev (docker compose --profile dev)
+#    - Dataset de SCRUM-35 cargado en el cluster de dev (docker compose -f docker-compose.yml --profile dev)
 #    - Sin el perfil "cluster" levantado: crear indices genera ~0,6-0,9 GB de WAL
 #    - SOLO en la base de desarrollo: el paso 1 BORRA los indices de SCRUM-39.1
 #
@@ -11,7 +11,7 @@
 #     ./database/analisis/indices/comparar.sh
 #
 #  Variables opcionales:
-#     CONTAINER     contenedor de PostgreSQL                  (default: demo_hia_db_dev)
+#     CONTAINER     contenedor de PostgreSQL                  (default: demo_hia_pg_1, debe ser el líder)
 #     USUARIO_ID    socio de la muestra para C1/C2/C3         (default: 21037, el de SCRUM-39)
 #     CORRIDAS      repeticiones de cada lectura              (default: 3)
 #     REINICIAR     1 = reiniciar la base antes de cada fase  (default: 1, vacia shared_buffers)
@@ -29,7 +29,8 @@ set -euo pipefail
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 DIR_SQL="$RAIZ/database/analisis/indices"
 DIR_EV="$RAIZ/docs/evidencias/SCRUM-39/indices"
-CONTAINER="${CONTAINER:-demo_hia_db_dev}"
+# Con Patroni tiene que ser el nodo LÍDER (ver "patronictl list"); por defecto pg-1.
+CONTAINER="${CONTAINER:-demo_hia_pg_1}"
 USUARIO_ID="${USUARIO_ID:-21037}"
 CORRIDAS="${CORRIDAS:-3}"
 REINICIAR="${REINICIAR:-1}"
@@ -58,7 +59,9 @@ psql_db() { docker exec -i -e PGAPPNAME=scrum39-indices "$CONTAINER" psql -X -q 
 reiniciar_db() {
     [[ "$REINICIAR" == "1" ]] || return 0
     echo "    reiniciando $CONTAINER (shared_buffers vacio)"
-    docker restart "$CONTAINER" >/dev/null
+    # Con Patroni, "docker restart" del líder dispararía un failover: patronictl reinicia PostgreSQL en el
+    # mismo nodo sin cambiar de líder.
+    docker exec "$CONTAINER" sh -c 'patronictl -c /etc/patroni/patroni.yml restart --force "$PATRONI_SCOPE" "$PATRONI_NAME"' >/dev/null
     for _ in $(seq 1 60); do
         [[ "$(estado_db)" == "healthy" ]] && return 0
         sleep 2

@@ -35,7 +35,7 @@ Cómo está montado el entorno de producción de GymHub, cómo llega un cambio d
 ## 1. Resumen en una página
 
 - **Dónde corre:** una PC de escritorio con Windows 11 y Docker Desktop, que hace de servidor.
-- **Qué corre:** frontend (Nginx + Angular), backend (Node/Express), PostgreSQL primario + réplica, backups automáticos, monitoreo (Prometheus, Grafana, Alertmanager y exporters), Mantis, n8n y el túnel de Cloudflare.
+- **Qué corre:** frontend (Nginx + Angular), backend (Node/Express), cluster PostgreSQL con failover automático (Patroni: 1 líder + 2 réplicas), backups automáticos, monitoreo (Prometheus, Grafana, Alertmanager y exporters), Mantis, n8n y el túnel de Cloudflare.
 - **Cómo llega un cambio:** PR a `develop` → PR de release a `main` → el **CI** valida → el **CD** publica las imágenes en GHCR y un **runner instalado en el servidor** las despliega. Si la versión nueva no está sana, se vuelve sola a la anterior.
 - **Cómo entra el público:** por **Cloudflare Tunnel**, una URL HTTPS que llega solo al Nginx. El router no tiene puertos abiertos.
 - **Cómo entra el equipo a administrar:** por **Tailscale**, una VPN privada. Grafana, Prometheus, Mantis, n8n y la base solo son accesibles desde los dispositivos del equipo.
@@ -89,9 +89,9 @@ flowchart TB
         RUN[Runner self-hosted<br/>pc-servidor-gymhub] -->|scripts/deploy.sh SHA| APP
         subgraph APP["Proyecto Compose 'gymhub' (producción)"]
             FE[frontend · Nginx] --> BE[backend · API]
-            BE --> DB[(db · primario)]
-            BE -.lecturas.-> RE[(db-replica)]
-            DB -->|streaming| RE
+            BE --> DB[haproxy · alias db]
+            DB --> PG[(pg-1 · pg-2 · pg-3<br/>Patroni)]
+            PG --> ETCD[etcd]
             BK[backup] --> DB
             CFD[cloudflared] --> FE
         end
@@ -136,24 +136,27 @@ Los contenedores de GymHub se organizan en **tres grupos** (proyectos de Docker 
 
 ```
 Docker Desktop
-├── gymhub-produccion      6 contenedores   lo que ven los usuarios
+├── gymhub-produccion      9 contenedores   lo que ven los usuarios
 │   ├── gymhub_frontend_prod          Nginx + SPA de Angular
 │   ├── gymhub_backend_prod           API Express
-│   ├── gymhub_db_prod         ┐      cluster PostgreSQL:
-│   ├── gymhub_db_replica_prod ┘      primario + réplica por streaming
+│   ├── gymhub_pg_1_prod       ┐
+│   ├── gymhub_pg_2_prod       │      cluster PostgreSQL con Patroni:
+│   ├── gymhub_pg_3_prod       │      1 líder + 2 réplicas, failover automático
+│   ├── gymhub_etcd_prod       │      (etcd: quién es el líder;
+│   ├── gymhub_haproxy_prod    ┘       HAProxy "db": manda al líder)
 │   ├── gymhub_backup_prod            pg_dump diario
 │   └── gymhub_cloudflared_rapido     túnel hacia Internet
 │
-├── gymhub-monitoreo       8 contenedores   observar producción
+├── gymhub-monitoreo       7 contenedores   observar producción
 │   ├── gymhub-prometheus-scrum66, gymhub-grafana-scrum66, gymhub-alertmanager-scrum68
-│   └── exporters: node, cAdvisor, blackbox, postgres (primario y réplica)
+│   └── exporters: node, cAdvisor, blackbox, postgres (líder); Patroni expone sus propias métricas
 │
 ├── gymhub-herramientas    4 contenedores   operar y administrar
 │   ├── gymhub-mantis, gymhub-mantis-db     incidencias
 │   ├── gymhub-n8n-scrum75                  automatización
 │   └── gymhub_db_puente                    acceso a la base de producción (127.0.0.1:5436)
 │
-└── proyecto_demo_hia      entorno de DESARROLLO (demo_hia_db_dev, réplica de desarrollo), aparte
+└── proyecto_demo_hia      entorno de DESARROLLO (cluster demo_hia_pg_1..3, etcd y HAProxy de desarrollo), aparte
 ```
 
 | Grupo | Lo levanta | Archivos |
@@ -166,7 +169,7 @@ Criterios del agrupamiento:
 
 - **Por ciclo de vida:** producción cambia con cada despliegue; monitoreo y herramientas casi nunca. Un despliegue no reinicia Grafana ni Mantis, y bajar las herramientas no toca la app.
 - **Por responsabilidad:** lo que ven los usuarios, lo que mira el equipo y lo que usa el equipo para operar.
-- **Cluster de base dentro de producción:** el primario y la réplica viven en el mismo grupo que la app porque se despliegan juntos y comparten la red interna `gymhub_prod_db_net`.
+- **Cluster de base dentro de producción:** los 3 nodos Patroni, etcd y HAProxy viven en el mismo grupo que la app porque se despliegan juntos y comparten la red interna `gymhub_prod_db_net`.
 - **Nombres de contenedor:** se conservaron los que eligió cada integrante (por ejemplo `-scrum66`), porque los referencian scripts y documentación de su ticket. El grupo los ordena sin romper nada.
 - **Datos intactos:** al renombrar los grupos, los volúmenes conservan su nombre original (`gymhub-scrum66_*`, `gymhub-scrum75_n8n_data`, `gymhub_mantis_db`, `gymhub_prod_*`), declarado explícitamente en cada compose.
 
@@ -177,9 +180,10 @@ Proyecto Compose **`gymhub-produccion`**, definido por `compose.yaml` + `compose
 | Contenedor | Imagen | Qué hace | Puerto en el host |
 |---|---|---|---|
 | `gymhub_frontend_prod` | `ghcr.io/valentiniriar/gymhub-web:<SHA>` | Nginx sin privilegios: sirve la SPA de Angular y hace de proxy de `/api` hacia el backend | `127.0.0.1:80` |
-| `gymhub_backend_prod` | `ghcr.io/valentiniriar/gymhub-backend:<SHA>` | API Express (Node 22, usuario no root). Escribe en el primario y lee de la réplica | — |
-| `gymhub_db_prod` | `postgres:16-alpine` | PostgreSQL primario. Configuración en `database/config/postgresql.conf` | — |
-| `gymhub_db_replica_prod` | `postgres:16-alpine` | Réplica *hot standby* por streaming (solo lectura) | — |
+| `gymhub_backend_prod` | `ghcr.io/valentiniriar/gymhub-backend:<SHA>` | API Express (Node 22, usuario no root). Escribe en `db:5432` (líder) y lee de `db:5433` (réplicas) | — |
+| `gymhub_pg_1_prod`, `gymhub_pg_2_prod`, `gymhub_pg_3_prod` | `gymhub-patroni:16` (local, `database/patroni/`) | Nodos PostgreSQL 16 con Patroni: uno es líder y dos réplicas por streaming; si cae el líder, Patroni promueve otro solo. Configuración en `database/patroni/patroni.yml` y `database/config/postgresql.conf` | — |
+| `gymhub_etcd_prod` | `quay.io/coreos/etcd:v3.5.21` | Guarda quién es el líder (lock con vencimiento de 20 s) | — |
+| `gymhub_haproxy_prod` | `haproxy:3.2.4-alpine` | Alias de red `db`: `db:5432` → líder, `db:5433` → lecturas. Pregunta a la API de Patroni (`:8008`) quién es quién | — |
 | `gymhub_backup_prod` | `gymhub-backup` (local) | `pg_dump` diario a las 03:00, retención de 7 días | — |
 | `gymhub_cloudflared_rapido` | `cloudflare/cloudflared:2026.10.7@sha256:…` | Túnel hacia Cloudflare (sistema de archivos de solo lectura, sin capacidades) | `127.0.0.1:2000` (métricas) |
 
@@ -187,7 +191,7 @@ Las imágenes de la app se etiquetan con el **SHA del commit** que las generó: 
 
 **Healthchecks:**
 
-- `db` y `db-replica`: `pg_isready`.
+- `pg-1..3`: `GET /health` de la API de Patroni (200 si PostgreSQL corre en ese nodo, sea líder o réplica).
 - `backend`: `HEALTHCHECK` de la imagen sobre `GET /api/health`, que responde 200 solo si la API y la base funcionan.
 - El despliegue además verifica `http://127.0.0.1/api/health` **pasando por Nginx** (ver [sección 8](#8-cómo-se-despliega-una-versión-scriptsdeploysh)).
 
@@ -200,9 +204,10 @@ En la misma PC conviven el entorno de **desarrollo** (contenedores `demo_hia_*`,
 | Recurso | Producción | Contiene |
 |---|---|---|
 | Red `gymhub_prod_frontend_net` | frontend, backend, cloudflared, exporters web | Tráfico web |
-| Red `gymhub_prod_db_net` | backend, db, db-replica, backup, exporters de Postgres, puente | Tráfico de base de datos |
-| Volumen `gymhub_prod_db_data` | — | Datos del primario |
-| Volumen `gymhub_prod_db_replica_data` | — | Datos de la réplica |
+| Red `gymhub_prod_db_net` | backend, haproxy (`db`), pg-1..3, etcd, backup, Prometheus, exporter de Postgres, puente | Tráfico de base de datos |
+| Volumen `gymhub_prod_db_data` | — | Datos de `pg-1` (el volumen del antiguo primario, adoptado por Patroni) |
+| Volúmenes `gymhub_prod_db_replica_data`, `gymhub_prod_db_replica2_data` | — | Datos de `pg-2` y `pg-3` |
+| Volumen `gymhub_prod_etcd_data` | — | Estado de etcd (quién es el líder) |
 | Volumen `gymhub_prod_db_backups` | — | Archivos de backup |
 
 - **El frontend no está en la red de la base:** aunque se comprometiera Nginx, no llega directo a PostgreSQL.
@@ -323,7 +328,7 @@ Pasos de un despliegue:
 
 1. Lee la versión actual de `produccion/version-desplegada.txt` (para un eventual rollback).
 2. `docker compose pull` de `gymhub-backend:<SHA>` y `gymhub-web:<SHA>`.
-3. `docker compose up -d --wait` de `db`, `db-replica`, `backup`, `backend` y `frontend`, con `IMAGE_TAG=<SHA>`. El `--wait` espera a que todos los servicios con healthcheck estén *healthy* (máximo 240 s). **El túnel no se recrea**, para que no cambie la URL pública.
+3. `docker compose up -d --wait` de `etcd`, `pg-1`, `pg-2`, `pg-3`, `haproxy`, `backup`, `backend` y `frontend`, con `IMAGE_TAG=<SHA>`. El `--wait` espera a que todos los servicios con healthcheck estén *healthy* (máximo 240 s). **El túnel no se recrea**, para que no cambie la URL pública.
 4. Verificación de punta a punta: `http://127.0.0.1/api/health` tiene que responder **200 pasando por Nginx** (frontend → backend → base).
 5. Si todo está bien, escribe el SHA en `version-desplegada.txt` y una línea `OK` en el historial.
 6. Si algo falla, hace un **rollback automático** a la versión anterior, lo verifica de la misma forma y termina con error para que el job quede en rojo.
@@ -421,11 +426,11 @@ Si se pierde un dispositivo, se lo quita desde el panel de Tailscale y pierde el
 
 ### 12.1 Replicación
 
-- **Configuración:** primario `db` y réplica `db-replica` con **replicación física por streaming asíncrona**, usando el slot `standby_slot_1`.
-- **Reparto de la carga:** el backend escribe en el primario y lee de la réplica (`DB_HOST_PRIMARY` / `DB_HOST_REPLICA`, Sequelize `replication`).
+- **Configuración:** cluster **Patroni** de 3 nodos (`pg-1`, `pg-2`, `pg-3`) con **replicación física por streaming asíncrona**; Patroni crea y borra los replication slots. etcd guarda quién es el líder y HAProxy (`db`) manda las conexiones a él.
+- **Reparto de la carga:** el backend escribe en `db:5432` (líder) y lee de `db:5433` (réplicas) (`DB_HOST_PRIMARY` / `DB_HOST_REPLICA`, Sequelize `replication`).
 - **Réplica de solo lectura:** `pg_is_in_recovery() = true`.
-- **Monitoreo:** Prometheus mide el estado y el retraso de la réplica (alertas `PostgresReplica*`).
-- **Sin failover automático:** si cae el primario, la réplica se promueve a mano (`pg_promote()`). El procedimiento está en `docs/SCRUM-48-failover-y-recuperacion.md`.
+- **Monitoreo:** Prometheus lee la API de Patroni de cada nodo: rol, atraso y cambios de líder (alertas `GymHubSinLider`, `GymHubFailoverOcurrido`, `GymHubNodoPatroniCaido`, etc.).
+- **Failover automático:** si cae el líder, Patroni promueve una réplica en segundos y el viejo líder vuelve solo como réplica. Prueba, comandos y migración: **`docs/implementacion-patroni.MD`**. Ver el estado: `docker exec gymhub_pg_1_prod patronictl -c /etc/patroni/patroni.yml list`.
 
 ### 12.2 Cómo entrar a la base
 
@@ -433,7 +438,7 @@ Si se pierde un dispositivo, se lo quita desde el panel de Tailscale y pierde el
 
 | Desde | Cómo | Datos |
 |---|---|---|
-| El servidor, por consola | `docker exec -it gymhub_db_prod sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'` | Sin contraseña (entra desde adentro del contenedor) |
+| El servidor, por consola | `docker exec -it gymhub_pg_1_prod sh -c 'PGPASSWORD="$PATRONI_SUPERUSER_PASSWORD" psql -h db -U "$PATRONI_SUPERUSER_USERNAME" -d "$DB_NAME"'` | Sin escribir la contraseña (la toma del contenedor). `-h db` va por HAProxy: siempre al líder |
 | El servidor, con pgAdmin o DBeaver | Host `127.0.0.1`, puerto `5436`, base y usuario `gymhub` | Contraseña: `DB_PASS` de `produccion/.env.prod` |
 | Otro dispositivo (Tailscale) | Host `gymhub-servidor.tailec3350.ts.net`, puerto `5436`, base y usuario `gymhub` | Ídem |
 
@@ -481,12 +486,12 @@ Se levanta con `bash scripts/infra.sh levantar`, que usa `infra/monitoring/docke
 |---|---|
 | node-exporter | CPU, memoria, disco y red del servidor (VM de Docker) |
 | cAdvisor | Estado, recursos y reinicios de cada contenedor |
-| postgres-exporter (primario y réplica) | Conexiones, transacciones, tamaño de la base, estado y retraso de la réplica |
+| postgres-exporter (del líder) + métricas de Patroni | Conexiones, transacciones y tamaño de la base; rol de cada nodo, atraso de las réplicas y cambios de líder |
 | blackbox-exporter | Disponibilidad HTTP: `frontend:8080/api/health`, `backend:3000/api/health` y **la URL pública** (desde afuera, por Cloudflare) |
 | cloudflared | Métricas del propio túnel |
 
 - **Dashboard:** Grafana → *GymHub \| Producción*.
-- **Alertas:** reglas en `prometheus/alerts/gymhub.rules.prod.yml` (app caída, réplica desconectada o atrasada, CPU, memoria, disco, reinicios de contenedores, URL pública caída, certificado por vencer).
+- **Alertas:** reglas en `prometheus/alerts/gymhub.rules.prod.yml` (app caída, nodo del cluster caído, sin líder, failover ocurrido, réplica atrasada, CPU, memoria, disco, reinicios de contenedores, URL pública caída, certificado por vencer).
 - **Configuración derivada:** la configuración de producción se **genera** a partir de la del equipo con `bash infra/monitoring/generar-prod.sh`, que solo cambia los destinos. Si se modifica la configuración original, hay que volver a correrlo (`infra.sh levantar` lo hace solo).
 
 ---
@@ -558,7 +563,7 @@ Ejecutar desde la carpeta del proyecto, en Git Bash.
 | Logs de la API | `docker logs -f gymhub_backend_prod` |
 | Logs de Nginx | `docker logs -f gymhub_frontend_prod` |
 | Contenedores de un grupo | `docker ps --filter label=com.docker.compose.project=gymhub-produccion` (o `-monitoreo`, `-herramientas`) |
-| Consola SQL | `docker exec -it gymhub_db_prod sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'` |
+| Consola SQL | `docker exec -it gymhub_pg_1_prod sh -c 'PGPASSWORD="$PATRONI_SUPERUSER_PASSWORD" psql -h db -U "$PATRONI_SUPERUSER_USERNAME" -d "$DB_NAME"'` |
 | Arrancar el runner del CD | `C:\actions-runner\iniciar-runner.cmd` |
 
 ---
@@ -636,7 +641,7 @@ En la notebook que se lleva:
 
 - **Un único servidor doméstico:** un corte de luz o de Internet, la suspensión o un reinicio de Windows dejan todo fuera de servicio. La disponibilidad se mide con `blackbox-publico`.
 - **URL pública:** la URL fija es la de Funnel (`https://gymhub-servidor.tailec3350.ts.net`). El túnel rápido de Cloudflare queda de respaldo y cambia de dirección al reiniciarse. Un nombre propio (`gymhub.<dominio>`) requiere comprar un dominio y usar el túnel con nombre.
-- **Sin failover automático de la base:** la promoción de la réplica es manual.
+- **Failover automático, pero en un solo servidor:** Patroni cubre la caída de un nodo (contenedor), no la del servidor entero. Hay un solo etcd: si se cae, no puede haber failover hasta que vuelva (el líder sigue escribiendo gracias a `failsafe_mode`).
 - **El rollback no revierte datos:** los cambios de esquema incompatibles requieren restaurar un backup.
 - **Backups en el mismo disco:** no protegen contra ransomware ni contra la rotura del disco. Mejora: copia periódica fuera del servidor.
 - **Runner y túnel se lanzan a mano** después de un reinicio. Mejora: tareas programadas al iniciar sesión.
@@ -652,7 +657,7 @@ En la notebook que se lleva:
 | Acceso administrativo por Tailscale y monitoreo de producción | `docs/SCRUM-61-acceso-administrativo.md` |
 | Cloudflare Tunnel (túnel rápido y con nombre) | `docs/SCRUM-60-cloudflare-tunnel.md` |
 | Compose de desarrollo y producción | `docs/SCRUM-53-compose-dev-prod.md` |
-| Replicación, failover y recuperación | `docs/SCRUM-45…49-*.md` |
+| Replicación, failover y recuperación | `docs/implementacion-patroni.MD` (actual) · `docs/SCRUM-45…49-*.md` (diseño anterior, failover manual) |
 | Backups y restauración | `docs/SCRUM-37`, `docs/SCRUM-38-persistencia-y-restauracion.md` |
 | Monitoreo, dashboard y alertas | `docs/11-manual-monitoreo-gymhub.md`, `docs/SCRUM-66/67/68-*.md` |
 | Seguridad e informe de amenazas | `docs/14-informe-seguridad.md`, `docs/SCRUM-63-matriz-amenazas.md` |

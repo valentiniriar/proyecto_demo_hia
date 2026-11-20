@@ -40,7 +40,12 @@ HEALTH_URL="${HEALTH_URL:-http://127.0.0.1/api/health}"
 COMPOSE=(docker compose -p gymhub-produccion --env-file "$ENV_FILE"
          -f compose.yaml -f compose.prod.yaml -f compose.tunnel.yaml --profile prod)
 # El túnel (cloudflared) NO está en la lista: si se recreara, el túnel rápido cambiaría de URL.
-SERVICIOS=(db db-replica backup backend frontend)
+# Base: cluster Patroni (etcd + 3 nodos + HAProxy). Ver docs/implementacion-patroni.MD.
+SERVICIOS=(etcd pg-1 pg-2 pg-3 haproxy backup backend frontend)
+# Contenedores de la topología anterior (primario + réplica fijos). Si siguen existiendo, Compose no los
+# borra (quedan "huérfanos") y pg-1 arrancaría sobre el MISMO volumen que gymhub_db_prod: dos PostgreSQL
+# escribiendo los mismos archivos corrompen la base. Hay que migrar primero (docs/implementacion-patroni.MD).
+CONTENEDORES_VIEJOS=(gymhub_db_prod gymhub_db_replica_prod)
 
 log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*"; }
 registrar() { printf '%s | %-40s | %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" "$2" >> "$HISTORIAL"; }
@@ -65,6 +70,14 @@ if [ "${1:-}" = "--tunel" ]; then
 fi
 
 TAG="${1:?Uso: bash scripts/deploy.sh <tag> | --estado | --tunel}"
+
+for viejo in "${CONTENEDORES_VIEJOS[@]}"; do
+  if docker container inspect "$viejo" >/dev/null 2>&1; then
+    log "✖ Existe el contenedor $viejo de la base anterior (sin Patroni)."
+    log "  Hacer primero la migración a Patroni: docs/implementacion-patroni.MD, sección \"Migrar producción\"."
+    exit 1
+  fi
+done
 ANTERIOR="$(cat "$ACTUAL" 2>/dev/null || true)"
 
 desplegar() {

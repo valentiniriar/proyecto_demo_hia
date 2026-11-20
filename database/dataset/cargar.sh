@@ -8,7 +8,7 @@
 #     ./database/dataset/cargar.sh 04_verificar   # solo un paso
 #
 #  Variables opcionales:
-#     CONTAINER   contenedor de PostgreSQL (default: demo_hia_db_dev)
+#     CONTAINER   contenedor de PostgreSQL (default: demo_hia_pg_1, debe ser el líder)
 #
 #  Requiere el .env de la raiz (DB_USER, DB_NAME). La salida de cada paso
 #  queda en docs/evidencias/SCRUM-35/<paso>.log
@@ -19,7 +19,8 @@ set -euo pipefail
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DIR_SQL="$RAIZ/database/dataset"
 DIR_LOG="$RAIZ/docs/evidencias/SCRUM-35"
-CONTAINER="${CONTAINER:-demo_hia_db_dev}"
+# Con Patroni tiene que ser el nodo LÍDER (ver "patronictl list"); por defecto pg-1.
+CONTAINER="${CONTAINER:-demo_hia_pg_1}"
 
 if [[ ! -f "$RAIZ/.env" ]]; then
     echo "ERROR: falta $RAIZ/.env (cp .env.example .env)" >&2

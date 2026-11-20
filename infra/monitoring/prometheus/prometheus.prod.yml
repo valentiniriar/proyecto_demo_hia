@@ -21,10 +21,11 @@ scrape_configs:
   - job_name: postgres-primary
     static_configs:
       - targets: ['postgres-exporter-primary:9187']
-  # SCRUM-66: exporter readonly del standby existente en red Docker local.
-  - job_name: postgres-replica
+  # Cluster Patroni: rol (líder/réplica), timeline y WAL de cada nodo desde su API REST.
+  # Prometheus llega a los nodos por la red de la base (dev: docker-compose.patroni-dev.yml; prod: prod_db).
+  - job_name: patroni
     static_configs:
-      - targets: ['postgres-exporter-replica:9187']
+      - targets: ['pg-1:8008', 'pg-2:8008', 'pg-3:8008']
   - job_name: blackbox-exporter
     static_configs:
       - targets: ['blackbox-exporter:9115']

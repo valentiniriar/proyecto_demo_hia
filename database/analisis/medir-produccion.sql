@@ -1,6 +1,8 @@
 -- Mediciones de las consultas lentas detectadas con el dataset de 6M en producción (SCRUM-42).
--- Solo lectura: se corre contra la RÉPLICA, que es de donde lee el backend.
---   docker exec -i gymhub_db_replica_prod psql -X -U <DB_USER> -d <DB_NAME> -f - < database/analisis/medir-produccion.sql
+-- Solo lectura: se corre contra una RÉPLICA, que es de donde lee el backend. Con Patroni, el puerto 5433
+-- de HAProxy lleva a una réplica (o al líder si no hay ninguna):
+--   docker exec -i -e PGPASSWORD=<DB_PASS> gymhub_pg_1_prod psql -X -h db -p 5433 -U <DB_USER> -d <DB_NAME> -f - < database/analisis/medir-produccion.sql
+-- (antes de Patroni, el 20/11/2026: docker exec -i gymhub_db_replica_prod psql ...)
 \pset pager off
 \timing on
 -- Socio de ejemplo: el usuario demo (id 3) y uno generado.

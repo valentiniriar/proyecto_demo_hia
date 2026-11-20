@@ -12,26 +12,19 @@ services:
     # Misma ruta destino: reemplaza al prometheus.yml de laboratorio por el de producción.
     volumes:
       - ./prometheus/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
-    networks: [monitoring, prod_web]
+    # prod_db: para leer las métricas de Patroni de cada nodo (pg-1..3:8008).
+    networks: [monitoring, prod_web, prod_db]
 
   cadvisor:
     # Docker Desktop (Windows/macOS) expone el socket del daemon en /var/run/docker.sock.
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
+  # "db" es HAProxy: el exporter mide siempre al líder del cluster Patroni, sea cual sea.
+  # El rol y el atraso de cada réplica salen de las métricas de Patroni (job "patroni").
   postgres-exporter-primary:
     environment:
       DATA_SOURCE_URI: 'db:5432/${PG_DB}?sslmode=disable'
-    networks: [monitoring, prod_db]
-
-  postgres-exporter-replica:
-    image: prometheuscommunity/postgres-exporter:v0.20.1
-    container_name: gymhub-postgres-exporter-replica-prod
-    restart: unless-stopped
-    environment:
-      DATA_SOURCE_URI: 'db-replica:5432/${PG_DB}?sslmode=disable'
-      DATA_SOURCE_USER: ${PG_EXPORTER_USER}
-      DATA_SOURCE_PASS: ${PG_EXPORTER_PASSWORD}
     networks: [monitoring, prod_db]
 
   blackbox-exporter:
