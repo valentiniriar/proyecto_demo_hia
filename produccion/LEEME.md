@@ -7,6 +7,7 @@ Secretos y estado del **servidor de producción**. Todo lo que hay acá, salvo e
 | `.env.prod` | `DB_NAME`, `DB_USER`, `DB_PASS`, `POSTGRES_REPLICA_USER`, `POSTGRES_REPLICA_PASSWORD`, `PATRONI_RESTAPI_PASSWORD`, `JWT_SECRET`, configuración de backups y `CLOUDFLARE_TUNNEL_TOKEN` (opcional) | `scripts/deploy.sh` y el CD |
 | `credenciales-produccion.txt` | Contraseñas de los usuarios de la app en producción (`admin`, `entrenador`; `socio` usa la de demostración) | Personas |
 | `version-desplegada.txt` | SHA de la versión que está en producción | `scripts/deploy.sh` (rollback automático) |
+| `imagenes-locales.txt` | Hash (árbol de git) de `database/backup` y `database/patroni` con el que se construyeron por última vez las imágenes locales. `deploy.sh` solo las reconstruye si cambió, porque cada `build` recrea los contenedores (y reiniciaría los 3 nodos de Patroni) | `scripts/deploy.sh` |
 | `historial-despliegues.log` | Una línea por despliegue: fecha, SHA y resultado (`OK`, `FALLÓ`, `ROLLBACK OK`) | `scripts/deploy.sh --estado` |
 | `CREDENCIALES.txt` | **Todas** las credenciales juntas: app, base, Grafana, Mantis, n8n y túnel. Se genera con `bash scripts/infra.sh credenciales` | Personas |
 
