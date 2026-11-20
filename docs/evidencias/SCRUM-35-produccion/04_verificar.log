@@ -1,0 +1,196 @@
+Time: 0.218 ms
+Time: 0.141 ms
+Time: 0.200 ms
+Time: 53.270 ms
+Time: 5241.979 ms (00:05.242)
+Time: 48026.247 ms (00:48.026)
+Time: 59.369 ms
+Time: 0.603 ms
+Time: 5437.347 ms (00:05.437)
+Time: 14220.231 ms (00:14.220)
+Time: 381.445 ms
+Time: 63735.087 ms (01:03.735)
+
+==================== RESULTADO DE LOS CHEQUEOS ====================
+     grupo     |                      chequeo                       |   valor   | esperado  | estado 
+---------------+----------------------------------------------------+-----------+-----------+--------
+ conteo        | ejercicios (catalogo)                              | 200       | 200       | OK
+ conteo        | pagos                                              | 6,000,000 | 6,000,000 | OK
+ conteo        | roles (catalogo)                                   | 3         | 3         | OK
+ conteo        | rutina_ejercicios                                  | 6,000,000 | 6,000,000 | OK
+ conteo        | rutinas                                            | 6,000,000 | 6,000,000 | OK
+ conteo        | suscripciones                                      | 6,000,000 | 6,000,000 | OK
+ conteo        | tarifas                                            | 6,000,000 | 6,000,000 | OK
+ conteo        | usuario_roles                                      | 6,000,000 | 6,000,000 | OK
+ conteo        | usuarios                                           | 6,000,000 | 6,000,000 | OK
+ huerfanos     | pagos.tarifaId -> tarifas                          | 0         | 0         | OK
+ huerfanos     | rutina_ejercicios.id_ejercicio -> ejercicios       | 0         | 0         | OK
+ huerfanos     | rutina_ejercicios.id_rutina -> rutinas             | 0         | 0         | OK
+ huerfanos     | rutinas.usuarioId -> usuarios                      | 0         | 0         | OK
+ huerfanos     | suscripciones.usuarioId -> usuarios                | 0         | 0         | OK
+ huerfanos     | tarifas.suscripcionId -> suscripciones             | 0         | 0         | OK
+ huerfanos     | usuario_roles.id_rol -> roles                      | 0         | 0         | OK
+ huerfanos     | usuario_roles.id_usuario -> usuarios               | 0         | 0         | OK
+ restricciones | FK validadas en el esquema                         | 8         | 8         | OK
+ restricciones | UNIQUE usuarios (dni, email)                       | 2         | 2         | OK
+ unicidad      | pagos.transaccion duplicadas                       | 0         | 0         | OK
+ unicidad      | usuarios.dni duplicados                            | 0         | 0         | OK
+ unicidad      | usuarios.email duplicados                          | 0         | 0         | OK
+ coherencia    | montos o precios <= 0                              | 0         | 0         | OK
+ coherencia    | pagos anteriores al mes de su cuota                | 0         | 0         | OK
+ coherencia    | pagos posteriores a la fecha de corte (2026-11-13) | 0         | 0         | OK
+ coherencia    | rutinas con ejercicio repetido (PK compuesta)      | 0         | 0         | OK
+ coherencia    | suscripciones con fecha_fin < fecha_inicio         | 0         | 0         | OK
+ coherencia    | tarifas donde suma(pagos) <> precio                | 0         | 0         | OK
+ coherencia    | tarifas impagas con pagos                          | 0         | 0         | OK
+ coherencia    | tarifas pagadas sin pagos                          | 0         | 0         | OK
+
+Time: 19.789 ms
+
+==================== DISTRIBUCIONES ====================
+--- Tarifas: pagadas / impagas (activas y anuladas) ---
+ estado | activo |  tarifas  | porcentaje 
+--------+--------+-----------+------------
+ pagada | t      | 4,800,000 |      80.00
+ impaga | t      | 743,958   |      12.40
+ impaga | f      | 456,042   |       7.60
+
+Time: 3229.502 ms (00:03.230)
+--- Tarifas por anio: volumen, % impago y percentiles de precio ---
+ anio |  tarifas  | pct_impago | precio_p10 | precio_p50 | precio_p90 
+------+-----------+------------+------------+------------+------------
+ 2021 | 11,109    |      19.71 |       2000 |       2500 |       3500
+ 2022 | 84,744    |      19.93 |       3500 |       5000 |       7000
+ 2023 | 268,540   |      19.88 |       8000 |      11500 |      14500
+ 2024 | 641,235   |      20.08 |      16000 |      23500 |      29000
+ 2025 | 1,426,282 |      19.99 |      20500 |      30000 |      37000
+ 2026 | 3,568,090 |      20.00 |      24500 |      35000 |      43000
+
+Time: 4680.681 ms (00:04.681)
+--- Pagos: en termino (dia 1-10) vs con mora, y en una o dos partes ---
+       momento        |   pagos   | porcentaje 
+----------------------+-----------+------------
+ con mora / 2da parte | 1,876,449 |      31.27
+ en termino           | 4,123,551 |      68.73
+
+Time: 14021.280 ms (00:14.021)
+ pagos_por_tarifa_pagada |  tarifas  
+-------------------------+-----------
+                       1 | 3,600,000
+                       2 | 1,200,000
+
+Time: 650.052 ms
+--- Suscripciones: altas por anio, activas y duracion ---
+ anio | suscripciones | activas | dias_promedio 
+------+---------------+---------+---------------
+ 2021 | 12,042        |       0 |          32.4
+ 2022 | 87,058        |       0 |          32.8
+ 2023 | 272,685       |       0 |          32.8
+ 2024 | 646,275       |       0 |          33.0
+ 2025 | 1,432,386     |       0 |          33.1
+ 2026 | 3,549,554     |  555633 |          32.2
+
+Time: 1714.671 ms (00:01.715)
+ tarifas_por_suscripcion | suscripciones 
+-------------------------+---------------
+                       0 | 1,199,999
+                       1 | 4,200,001
+                       2 | 1
+                       3 | 599,999
+
+Time: 9600.973 ms (00:09.601)
+--- Usuarios: altas por anio, estado y roles ---
+ anio | usuarios  | pct_activos | pct_google 
+------+-----------+-------------+------------
+ 2020 | 1,701     |       91.71 |       8.11
+ 2021 | 204,679   |       92.01 |       8.08
+ 2022 | 546,348   |       92.05 |       8.02
+ 2023 | 888,078   |       92.05 |       8.05
+ 2024 | 1,233,731 |       92.02 |       7.98
+ 2025 | 1,573,681 |       92.02 |       8.02
+ 2026 | 1,551,782 |       92.02 |       8.03
+
+Time: 3403.633 ms (00:03.404)
+    rol     | usuarios  | porcentaje 
+------------+-----------+------------
+ socio      | 5,904,001 |     98.400
+ entrenador | 89,998    |      1.500
+ admin      | 6,001     |      0.100
+
+Time: 760.837 ms
+   dominio    | usuarios  
+--------------+-----------
+ gmail.com    | 3,598,054
+ hotmail.com  | 1,200,574
+ yahoo.com.ar | 480,751
+ outlook.com  | 479,519
+ live.com.ar  | 241,099
+ demo.com     | 3
+
+Time: 1473.190 ms (00:01.473)
+--- Rutinas: turno, dia y ejercicios por rutina ---
+ turno  |  rutinas  | porcentaje 
+--------+-----------+------------
+ Tarde  | 2,401,844 |      40.03
+ Mañana | 2,096,504 |      34.94
+ Noche  | 1,501,651 |      25.03
+ Manana | 1         |       0.00
+
+Time: 1626.283 ms (00:01.626)
+ dia_semana |  rutinas  | porcentaje 
+------------+-----------+------------
+ Lunes      | 1,141,450 |      19.02
+ Miércoles  | 1,138,386 |      18.97
+ Jueves     | 1,023,490 |      17.06
+ Martes     | 1,017,857 |      16.96
+ Viernes    | 960,038   |      16.00
+ Sábado     | 540,408   |       9.01
+ Domingo    | 178,371   |       2.97
+
+Time: 625.487 ms
+ ejercicios_por_rutina |  rutinas  
+-----------------------+-----------
+                     0 | 1,499,997
+                     1 | 3,300,006
+                     2 | 899,997
+                     3 | 300,000
+
+Time: 2695.169 ms (00:02.695)
+
+==================== TAMANIOS ====================
+       tabla       |  datos  | indices |  total  
+-------------------+---------+---------+---------
+ usuarios          | 1049 MB | 630 MB  | 1679 MB
+ rutinas           | 821 MB  | 129 MB  | 950 MB
+ pagos             | 533 MB  | 129 MB  | 661 MB
+ suscripciones     | 529 MB  | 129 MB  | 658 MB
+ tarifas           | 438 MB  | 129 MB  | 567 MB
+ usuario_roles     | 207 MB  | 129 MB  | 336 MB
+ rutina_ejercicios | 207 MB  | 129 MB  | 336 MB
+ ejercicios        | 72 kB   | 16 kB   | 88 kB
+ roles             | 40 kB   | 32 kB   | 72 kB
+
+Time: 9.727 ms
+ tamanio_base 
+--------------
+ 5470 MB
+
+Time: 3.359 ms
+
+==================== HUELLA (reproducibilidad) ====================
+Tiene que dar lo mismo en dos cargas desde cero. Excluye las filas del
+seed porque su createdAt es NOW() al crear el contenedor.
+       tabla       |              huella              
+-------------------+----------------------------------
+ ejercicios        | 528773273518e13cd9819d87621258b8
+ rutina_ejercicios | 661a9b5bb7b81aa7df2872ed6583a01f
+ usuario_roles     | c663e4f3aa536eafd601392e6a8656e3
+ tarifas           | 8fd04f5863deaf22c91e0cdedf6de939
+ rutinas           | 016f13c878e50e65ffac4dcafdf99283
+ pagos             | 9ba51bdde7575ffcaf70bd2df707f12b
+ usuarios          | d83f9d6d193e98d0c1bbd251f9b51deb
+ suscripciones     | 00452a03e8c3c5cd96c5e3890539b731
+
+Time: 19498.277 ms (00:19.498)
+Time: 47.657 ms
+psql:<stdin>:257: NOTICE:  SCRUM-35: todos los chequeos OK (conteos exactos, 0 huerfanos, unicidad y coherencia).
