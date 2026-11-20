@@ -4,17 +4,20 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { UsuarioService } from '../../../services/usuario.service';
 import { RolService } from '../../../services/rol.service';
 import { Usuario } from '../../../models/usuario.model';
+import { PaginadorComponent } from '../../paginador/paginador.component';
 
 @Component({
   selector: 'app-usuarios-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, PaginadorComponent],
   templateUrl: './usuarios-list.component.html',
   styleUrl: './usuarios-list.component.css'
 })
 export class UsuariosListComponent implements OnInit {
 
   usuarios: Usuario[] = [];
+  page: number = 1;
+  hasMore: boolean = false;
 
   cargando: boolean = true;
 
@@ -45,13 +48,15 @@ export class UsuariosListComponent implements OnInit {
     this.cargarUsuarios();
   }
 
-  cargarUsuarios(): void {
+  cargarUsuarios(page: number = this.page): void {
     this.cargando = true;
-    this.usuarioService.getUsuarios().subscribe({
+    this.usuarioService.getUsuarios(page).subscribe({
       next: (response: any) => {
         this.cargando = false;
         if (response.status === '1') {
           this.usuarios = response.usuarios;
+          this.page = response.page;
+          this.hasMore = response.hasMore;
         }
         this.cdr.detectChanges();
       },

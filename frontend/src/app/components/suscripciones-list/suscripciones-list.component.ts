@@ -5,11 +5,13 @@ import { SuscripcionService } from '../../services/suscripcion.service';
 import { UsuarioService } from '../../services/usuario.service';
 import { Suscripcion } from '../../models/suscripcion.model';
 import { Usuario } from '../../models/usuario.model';
+import { Pagina } from '../../models/pagina.model';
+import { PaginadorComponent } from '../paginador/paginador.component';
 
 @Component({
   selector: 'app-suscripciones-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, PaginadorComponent],
   templateUrl: './suscripciones-list.component.html',
   styleUrl: './suscripciones-list.component.css'
 })
@@ -17,6 +19,8 @@ export class SuscripcionesListComponent implements OnInit {
 
   suscripciones: Suscripcion[] = [];
   usuarios: Usuario[] = [];
+  page: number = 1;
+  hasMore: boolean = false;
   cargando: boolean = true;
   mensajeExito: string = '';
   mensajeError: string = '';
@@ -41,24 +45,43 @@ export class SuscripcionesListComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.cargarDatos();
+    this.buscarSocios();
+    this.cargarSuscripciones();
   }
 
-  cargarDatos(): void {
+  cargarSuscripciones(page: number = this.page): void {
     this.cargando = true;
-    this.usuarioService.getSocios().subscribe({
-      next: (resUsu: any) => {
-        if (resUsu.status === '1') this.usuarios = resUsu.usuarios;
-        
-        this.suscripcionService.getSuscripciones().subscribe({
-          next: (resSusc: any) => {
-            this.suscripciones = resSusc;
-            this.cargando = false;
-            this.cdr.detectChanges();
-          }
-        });
+    this.suscripcionService.getSuscripciones(page).subscribe({
+      next: (res: Pagina<Suscripcion>) => {
+        this.suscripciones = res.items;
+        this.page = res.page;
+        this.hasMore = res.hasMore;
+        this.cargando = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.cargando = false;
+        this.mensajeError = 'Error al cargar las suscripciones.';
+        this.cdr.detectChanges();
       }
     });
+  }
+
+  // Combo de socios: hay millones, así que se busca por DNI (sin DNI, los 20 más recientes).
+  buscarSocios(dni: string = ''): void {
+    this.usuarioService.getSocios(dni.trim()).subscribe({
+      next: (res: any) => {
+        if (res.status === '1') this.usuarios = res.usuarios;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  // Al editar, el socio de la suscripción puede no estar entre los resultados del buscador.
+  private asegurarSocioEnCombo(usuario?: Usuario): void {
+    if (usuario && !this.usuarios.some(u => u.id === usuario.id)) {
+      this.usuarios = [usuario, ...this.usuarios];
+    }
   }
 
   abrirModalNuevo(): void {
@@ -81,6 +104,7 @@ export class SuscripcionesListComponent implements OnInit {
   abrirModalEditar(susc: Suscripcion): void {
     this.modoEdicion = true;
     this.suscripcionSeleccionadaId = susc.id;
+    this.asegurarSocioEnCombo(susc.usuario);
     this.suscripcionForm.patchValue({
       usuarioId: susc.usuario?.id,
       fecha_inicio: susc.fecha_inicio,
@@ -107,7 +131,7 @@ export class SuscripcionesListComponent implements OnInit {
         next: (response: any) => {
           if (response.status === '1') {
             this.mensajeExito = 'Suscripción actualizada.';
-            this.cargarDatos();
+            this.cargarSuscripciones();
           } else { this.mensajeError = response.msg; }
           this.cdr.detectChanges();
         }
@@ -117,7 +141,7 @@ export class SuscripcionesListComponent implements OnInit {
         next: (response: any) => {
           if (response.status === '1') {
             this.mensajeExito = 'Suscripción creada.';
-            this.cargarDatos();
+            this.cargarSuscripciones();
           } else { this.mensajeError = response.msg; }
           this.cdr.detectChanges();
         }
@@ -136,7 +160,7 @@ export class SuscripcionesListComponent implements OnInit {
       next: (response: any) => {
         if (response.status === '1') {
           this.mensajeExito = `Suscripción ${datos.activo ? 'activada' : 'inactivada'}.`;
-          this.cargarDatos();
+          this.cargarSuscripciones();
         }
         this.cdr.detectChanges();
       }
@@ -150,7 +174,7 @@ export class SuscripcionesListComponent implements OnInit {
       next: (response: any) => {
         if (response.status === '1') {
           this.mensajeExito = 'Suscripción eliminada.';
-          this.cargarDatos();
+          this.cargarSuscripciones();
         } else {
           this.mensajeError = response.msg;
         }

@@ -1,6 +1,7 @@
 const Tarifa = require('./../../src/models/tarifa.model');
 const Suscripcion = require('./../../src/models/suscripcion.model');
 const Usuario = require('./../../src/models/usuario.model');
+const { leerPaginacion, opcionesConsulta, armarPagina } = require('../utils/paginacion');
 
 const tarifaCtrl = {}; 
 
@@ -27,12 +28,14 @@ tarifaCtrl.createTarifa = async (req, res) => {
 
 tarifaCtrl.getTarifas = async (req, res) => { 
   try { 
-    const tarifas = await Tarifa.findAll(
-      {include: [
-           {model: Suscripcion, as: 'suscripcion', attributes: ['id','fecha_inicio' ,'fecha_fin', 'precio', 'activo']}
-        ]}
-    ); 
-    res.json(tarifas); 
+    const paginacion = leerPaginacion(req);
+    const tarifas = await Tarifa.findAll({
+        include: [
+            {model: Suscripcion, as: 'suscripcion', attributes: ['id','fecha_inicio' ,'fecha_fin', 'precio', 'activo']}
+        ],
+        ...opcionesConsulta(paginacion)
+    });
+    res.json(armarPagina(tarifas, paginacion));
   } catch (error) { 
     res.status(500).json({ status: '0', msg: 'Error al obtener las tarifas.' }); 
   } 

@@ -87,6 +87,7 @@
 
           </table>
         </div>
+        <app-paginador [page]="page" [hasMore]="hasMore" [cargando]="cargando" (cambiarPagina)="cargarDatos($event)" />
       </div>
     </div>
   }

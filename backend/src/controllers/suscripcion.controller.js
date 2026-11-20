@@ -1,6 +1,8 @@
 const Suscripcion = require('./../../src/models/suscripcion.model');
 const Usuario = require('./../../src/models/usuario.model');
 const Tarifa = require('./../../src/models/tarifa.model');
+const { Op } = require('sequelize');
+const { leerPaginacion, opcionesConsulta, armarPagina, leerBusqueda } = require('../utils/paginacion');
 
 const suscripcionCtrl = {}; 
 
@@ -51,12 +53,25 @@ suscripcionCtrl.createSuscripcion = async (req, res) => {
 suscripcionCtrl.getSuscripciones = async (req, res) => { 
 
   try { 
-    const suscripciones = await Suscripcion.findAll(
-      {include: [
-           {model: Usuario, as: 'usuario', attributes: ['id','apellido' ,'nombre', 'email']}
-        ]}
-    ); 
-    res.json(suscripciones); 
+    const paginacion = leerPaginacion(req);
+    // ?q= (combo de tarifas): id de suscripción o DNI del socio. Solo números: apellido no tiene índice y
+    // una búsqueda sin resultados recorría los ~6M usuarios. El socio se busca aparte por su índice único
+    // (un OR con $usuario.dni$ en el JOIN impedía usar los índices: ~20 s).
+    const q = leerBusqueda(req);
+    let where;
+    if (q) {
+        if (!/^\d+$/.test(q)) return res.json(armarPagina([], paginacion));
+        const socio = await Usuario.findOne({ where: { dni: q }, attributes: ['id'] });
+        where = { [Op.or]: [{ id: Number(q) }, ...(socio ? [{ usuarioId: socio.id }] : [])] };
+    }
+    const suscripciones = await Suscripcion.findAll({
+        include: [
+            {model: Usuario, as: 'usuario', attributes: ['id','apellido' ,'nombre', 'email', 'dni']}
+        ],
+        ...(where ? { where } : {}),
+        ...opcionesConsulta(paginacion)
+    });
+    res.json(armarPagina(suscripciones, paginacion));
   } catch (error) { 
     res.status(500).json({ status: '0', msg: 'Error al obtener las suscripciones.' }); 
   } 
