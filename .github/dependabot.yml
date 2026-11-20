@@ -30,6 +30,15 @@ updates:
     commit-message:
       prefix: "deps(frontend)"
     labels: [dependencias, frontend]
+    # Angular exige la MISMA versión mayor en todos sus paquetes. Dependabot proponía saltos mayores
+    # sueltos (ej. #91: solo @angular/cli 21 → 22, con el resto en 21 y el lockfile roto). Las versiones
+    # mayores de Angular se migran juntas, a mano, con `ng update` y PR a develop. Aplica también a las
+    # actualizaciones de seguridad (que Dependabot abre contra main).
+    ignore:
+      - dependency-name: "@angular/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@angular-devkit/*"
+        update-types: ["version-update:semver-major"]
     groups:
       angular:
         patterns: ["@angular/*", "@angular-devkit/*"]
