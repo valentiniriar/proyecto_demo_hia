@@ -47,11 +47,21 @@ Con la alerta inyectada por API, Alertmanager no envió el aviso de *resolved*, 
 | 11 eventos `login_fallido` desde `203.0.113.77` (IP de documentación, RFC 5737) | **Mantis #20** "Posible fuerza bruta: 10 logins fallidos en 5 min", categoría Seguridad, prioridad *high*. **Una sola incidencia** (deduplicación) |
 | Evento con `tipo: "borrar_todo"` | Rechazado por la validación → **flujo 00** |
 
+### Eventos reales del backend (después del release #117)
+
+11 logins con contraseña incorrecta contra `/api/auth/login` de producción: 5 respondieron **401** y los siguientes **429**, porque el *rate limit* del backend frenó el ataque. El backend avisó a n8n y n8n lo clasificó como "Rate limit (auth) activado", que es lo correcto: el ataque ya estaba frenado antes de llegar a 10 fallidos.
+
+**Hallazgo: incidencias duplicadas con eventos simultáneos.** Se abrieron 5 incidencias iguales (#21–#25). Al reproducirlo con 6 avisos en paralelo salieron **6 incidencias**. La causa: la deduplicación vivía en `staticData`, que n8n carga **al recibir** el webhook. Limitar las ejecuciones a una por vez (`N8N_CONCURRENCY_PRODUCTION_LIMIT=1`) no alcanzó por eso mismo, y siguieron saliendo 6. **Corrección:** antes de crear la incidencia, el flujo consulta en **Mantis** si ya hay una abierta igual en la última hora, y las ejecuciones van en fila. Resultado: **6 avisos en paralelo → 1 incidencia**. Las duplicadas se cerraron en Mantis como "duplicada".
+
 ## Flujo 00 · Manejo de errores
 
 Mail recibido: *"ERROR en n8n · 04 · Eventos de seguridad del backend → Mantis — Nodo: Clasificar y deduplicar — Error: Tipo de evento desconocido: borrar_todo — Ejecución: http://100.65.22.99:5679/workflow/GymHubSeguridad1/executions/17"*.
 
 Hallazgo durante la prueba: en n8n 2.x el *Error Workflow* también tiene que estar **publicado**. Si no, los demás flujos no pueden invocarlo ("is not active and cannot be executed"). `configurar.sh` lo publica.
+
+## Limpieza
+
+Las incidencias que generaron las pruebas (#18–#38) se cerraron en Mantis con una nota que las identifica como prueba controlada, y las duplicadas quedaron con resolución "duplicada". Queda abierta solo la #8 (BUG-008), que es real.
 
 ## Pendiente
 
