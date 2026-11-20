@@ -41,7 +41,7 @@ flowchart LR
 | **01 · Alertas → Mantis** (SCRUM-76) | Webhook `POST /webhook/gymhub-alertas` desde Alertmanager, con `Authorization: Bearer` | Estructura del payload, estado, severidad y *fingerprint*. Deduplica por *fingerprint* | *firing*: crea la incidencia (prioridad según severidad) y manda mail. *resolved*: agrega una nota de cierre |
 | **02 · Verificación de backups** | Todos los días 04:00, o manual | Estado `success`, antigüedad < 26 h y archivo no vacío | OK: registra. Fallo: incidencia en Mantis (Base de datos) y mail |
 | **03 · Informe de rendimiento** | Todos los días 08:00, o manual | Valida las respuestas de Prometheus y del analizador | 7 métricas de 24 h → analizador Python (umbrales, z robusto con mediana y MAD, tendencia) → informe `.md` en Nextcloud `Informes-IA/` → mail. **Si es crítico, pide aprobación humana** antes de abrir la incidencia |
-| **04 · Eventos de seguridad** (SCRUM-84) | Webhook `POST /webhook/gymhub-seguridad` desde el backend, con `X-GymHub-Secret` | Tipo de evento conocido e IP con formato válido. Clasifica fuerza bruta (10 fallidos en 5 min), rate limit e IP nueva de admin. Deduplica 1 h | Incidencia de Seguridad en Mantis |
+| **04 · Eventos de seguridad** (SCRUM-84) | Webhook `POST /webhook/gymhub-seguridad` desde el backend, con `X-GymHub-Secret` | Tipo de evento conocido e IP con formato válido. Clasifica fuerza bruta (10 fallidos en 5 min), rate limit e IP nueva de admin. Deduplica 1 h, contra Mantis | Incidencia de Seguridad en Mantis |
 
 Los JSON versionados están en `infra/n8n/workflows/0*.json` y se generan con `node infra/n8n/workflows/generar.js` a partir de los flujos del equipo (`workflows/originales/`). Los originales tenían dos errores que se corrigieron:
 - El flujo 2 mandaba `category` como texto y sin proyecto, así que Mantis lo rechazaba. Además usaba *Execute Command*, que n8n 2.x desactiva.
@@ -66,7 +66,7 @@ Los JSON versionados están en `infra/n8n/workflows/0*.json` y se generan con `n
 | Tormenta de alertas → muchas incidencias | Deduplicación por *fingerprint* (01) y por clave en 1 h (04); Alertmanager agrupa (`group_by`) |
 | Webhook expuesto y abusado | Solo accesible en las redes internas de Docker; requiere token o secreto |
 | Falla silenciosa de un flujo | Flujo 00 manda un mail; las ejecuciones fallidas se guardan 14 días |
-| La deduplicación vive en `staticData` | Se pierde al reimportar los flujos (`configurar.sh`); a lo sumo duplica una incidencia |
+| Eventos simultáneos → incidencias duplicadas | El flujo 04 consulta en **Mantis** si ya hay una abierta igual en la última hora, y las ejecuciones van de a una (`N8N_CONCURRENCY_PRODUCTION_LIMIT=1`). Probado: 6 avisos en paralelo → 1 incidencia. La memoria en `staticData` sola no alcanzaba |
 | Informe "IA" interpretado como verdad | El informe aclara el método y que no reemplaza la revisión humana; escalar requiere aprobación |
 | n8n caído | Reinicio automático; si no arranca, las alertas siguen en Alertmanager y Grafana |
 

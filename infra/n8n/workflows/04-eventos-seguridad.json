@@ -77,8 +77,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        900,
-        220
+        1540,
+        260
       ],
       "id": "f4-mantis",
       "credentials": {
@@ -98,6 +98,74 @@
         400
       ],
       "id": "f4-noop"
+    },
+    {
+      "id": "nodo-1",
+      "name": "Buscar incidencias recientes en Mantis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        160
+      ],
+      "parameters": {
+        "url": "http://mantis/api/rest/issues?page_size=50",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gymhubMantisBot",
+          "name": "Mantis - token n8n-bot"
+        }
+      }
+    },
+    {
+      "id": "nodo-2",
+      "name": "¿Ya hay una abierta?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        160
+      ],
+      "parameters": {
+        "jsCode": "const inc = $('Clasificar y deduplicar').item.json;\nconst resumen = '[n8n] ' + inc.incidencia.resumen;\nconst hace1h = Date.now() - 3600 * 1000;\nconst previa = ($json.issues || []).find((i) => i.summary === resumen && i.status?.name !== 'closed'\n  && Date.parse(i.created_at) > hace1h);\nreturn [{ json: { ...inc, duplicada: Boolean(previa), previa: previa ? previa.id : null } }];"
+      }
+    },
+    {
+      "id": "nodo-3",
+      "name": "¿Duplicada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1320,
+        160
+      ],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.duplicada }}",
+              "value2": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nodo-4",
+      "name": "Duplicada (ya está en Mantis)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1540,
+        60
+      ],
+      "parameters": {}
     }
   ],
   "connections": {
@@ -127,7 +195,7 @@
       "main": [
         [
           {
-            "node": "Crear incidencia en Mantis",
+            "node": "Buscar incidencias recientes en Mantis",
             "type": "main",
             "index": 0
           }
@@ -135,6 +203,46 @@
         [
           {
             "node": "Solo registrar (sin incidencia)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar incidencias recientes en Mantis": {
+      "main": [
+        [
+          {
+            "node": "¿Ya hay una abierta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Ya hay una abierta?": {
+      "main": [
+        [
+          {
+            "node": "¿Duplicada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Duplicada?": {
+      "main": [
+        [
+          {
+            "node": "Duplicada (ya está en Mantis)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Crear incidencia en Mantis",
             "type": "main",
             "index": 0
           }
