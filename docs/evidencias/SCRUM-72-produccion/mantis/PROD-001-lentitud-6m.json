@@ -1,0 +1,10 @@
+{
+  "summary": "PROD-001: con 6M filas, \"mis rutinas\" y \"mis tarifas\" tardan 4,2 s y el dashboard del admin 10 s",
+  "category": "Rendimiento",
+  "severity": "major",
+  "priority": "high",
+  "description": "Después de cargar el dataset de 6M filas por tabla en producción (SCRUM-35), las pantallas del socio y el dashboard del admin se volvieron lentas.\n\nCausa: PostgreSQL no crea índices en las columnas de las FK (rutinas.usuarioId, suscripciones.usuarioId, tarifas.suscripcionId): cada consulta hacía Parallel Seq Scan sobre 6M filas. Los índices se habían aprobado en SCRUM-39 pero solo se crearon en una base de desarrollo. El dashboard hace COUNT/SUM sobre todas las filas en cada visita.\n\nDetectada por Francisco Paredes al medir la API después de la carga.",
+  "steps_to_reproduce": "1. Base de producción con el dataset de 6M (docs/evidencias/SCRUM-35-produccion).\n2. Iniciar sesión como socio@demo.com y abrir Mis rutinas / Mis cuotas: ~4,2 s.\n3. Como admin, abrir el dashboard: ~10 s.\n4. EXPLAIN ANALYZE SELECT * FROM rutinas WHERE \"usuarioId\" = 3; → Parallel Seq Scan, 1.771 ms.",
+  "additional_information": "Jira: SCRUM-42 · PR: #100 (release #101) · Evidencia: docs/evidencias/SCRUM-42-produccion/",
+  "tags": ["SCRUM-42", "SCRUM-35", "produccion", "rendimiento"]
+}
