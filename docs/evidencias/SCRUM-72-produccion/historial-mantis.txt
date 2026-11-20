@@ -1,0 +1,239 @@
+# Historial de incidencias en el Mantis de PRODUCCIÓN (gymhub-mantis, proyecto GymHub)
+# Exportado el 20/11/2026 01:50 con infra/mantis/incidencias.js. Cargadas con infra/mantis/cargar-registro.js
+
+#1 [cerrada] BUG-001: URLs de la API hardcodeadas (http://localhost:3000) en 12 servicios de Angular · Frontend · severidad mayor · prioridad alta · responsable tgallo
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → tgallo
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#2 [cerrada] BUG-002: Script de prueba test_mp.js con ruta absoluta a un .env de otra máquina · Seguridad · severidad fallo · prioridad inmediata · responsable viriarte
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → viriarte
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#3 [cerrada] BUG-003: Consultas N+1 y conteos en memoria en Sequelize (dashboard y listado de socios) · Rendimiento · severidad mayor · prioridad alta · responsable tgallo
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → tgallo
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#4 [cerrada] BUG-004: Dependencias vulnerables reportadas por npm audit (12 en backend, 47 en frontend) · Seguridad · severidad mayor · prioridad alta · responsable fparedes
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → fparedes
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#5 [cerrada] BUG-005: npm test del backend salía con error a propósito (sin tests) · Backend · severidad menor · prioridad normal · responsable vlozano
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → vlozano
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#6 [cerrada] BUG-006: Endpoint de IA (/api/ai/generar-rutina) expuesto a prompt injection y abuso sin rate limiting · Seguridad · severidad mayor · prioridad alta · responsable tgallo
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → tgallo
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#7 [cerrada] BUG-007: Conflicto de puerto 5432 con instancias locales de PostgreSQL · Infraestructura · severidad menor · prioridad normal · responsable vlozano
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → vlozano
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#8 [asignada] BUG-008: JWT guardado en localStorage del navegador, expuesto ante XSS · Seguridad · severidad mayor · prioridad alta · responsable fparedes
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → fparedes
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+
+#9 [cerrada] BUG-009: No había restauración automatizada e idempotente de backups de PostgreSQL · Base de datos · severidad mayor · prioridad alta · responsable vlozano
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → vlozano
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#10 [cerrada] BUG-010: Réplica desincronizada ante picos de escritura por falta de replication slot · Infraestructura · severidad mayor · prioridad alta · responsable vlozano
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → vlozano
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#11 [cerrada] Un socio puede marcar como pagada la cuota de OTRO socio (IDOR en POST /api/pagos) · Seguridad · severidad fallo · prioridad inmediata · responsable viriarte
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → viriarte
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#12 [cerrada] Un socio puede marcar su cuota como pagada sin pagar en MercadoPago (pago no verificado del lado servidor) · Seguridad · severidad fallo · prioridad inmediata · responsable viriarte
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → viriarte
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#13 [cerrada] GET /api/tarifas/impagas/:usuarioId devuelve 500 ante un id no numérico · Backend · severidad menor · prioridad normal · responsable viriarte
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → viriarte
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#14 [cerrada] Cabeceras de seguridad incompletas en el Nginx del frontend (OWASP ZAP baseline) · Seguridad · severidad menor · prioridad alta · responsable viriarte
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → viriarte
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#15 [cerrada] PROD-001: con 6M filas, "mis rutinas" y "mis tarifas" tardan 4,2 s y el dashboard del admin 10 s · Rendimiento · severidad mayor · prioridad alta · responsable fparedes
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → fparedes
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#16 [cerrada] PROD-002: la web pública se cae y no vuelve sola (túnel rápido de Cloudflare: "Unauthorized: Tunnel not found") · Infraestructura · severidad mayor · prioridad urgente · responsable fparedes
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → fparedes
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+
+#17 [cerrada] PROD-003: Dependabot propone @angular/cli 22 con el resto de Angular en 21 y el CI falla (lockfile incompleto) · CI/CD · severidad menor · prioridad normal · responsable fparedes
+  2026-11-20 01:50 fparedes: issue-new
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: tag-added
+  2026-11-20 01:50 fparedes: Asignada a (nadie) → fparedes
+  2026-11-20 01:50 fparedes: Estado nueva → asignada
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado asignada → resuelta
+  2026-11-20 01:50 fparedes: Resolución abierta → corregida
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: note-added
+  2026-11-20 01:50 fparedes: Estado resuelta → cerrada
+

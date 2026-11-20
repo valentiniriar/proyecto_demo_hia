@@ -20,8 +20,11 @@ cloudflared/*.json
 !database/*.sql
 # Para permitir el dataset de 6m 
 !database/dataset/*.sql
-# Para permitir la creacion de indices 
+# Para permitir la creacion de indices
 !database/analisis/indices/*.sql
+# Migraciones versionadas (se aplican sobre bases existentes) y scripts de medición
+!database/migraciones/*.sql
+!database/analisis/*.sql
 *.sql.gz
 *.dump
 *.backup

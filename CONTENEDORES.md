@@ -309,12 +309,14 @@ Los grupos son independientes, pero se "tocan" a través de **redes compartidas*
 
 Ningún servicio escucha en `0.0.0.0`: **todo está en `127.0.0.1`**, es decir, solo desde el propio servidor. Para el resto del equipo hay dos caminos:
 
-- **Cloudflare (público):** solo la app. Cualquiera con la URL entra.
+- **Público:** solo la app. Cualquiera entra, sin instalar nada.
+  - **URL fija (principal):** https://gymhub-servidor.tailec3350.ts.net, publicada con **Tailscale Funnel**. No cambia aunque se reinicie el servidor.
+  - **Respaldo:** el túnel rápido de Cloudflare (`…trycloudflare.com`), cuya URL cambia en cada reinicio.
 - **Tailscale (privado, solo el equipo):** todo lo de administración. Es una red privada virtual: cada integrante instala Tailscale en su PC o celular, se une a la red del equipo y desde ahí ve el servidor como si estuviera en la misma casa. Desde la LAN o desde Internet, en cambio, no se ve nada.
 
 | Servicio | En el servidor | Desde la PC de un integrante (Tailscale) | Por Internet (público) |
 |---|---|---|---|
-| App GymHub | http://localhost | `:80` | ✅ URL de trycloudflare |
+| App GymHub | http://localhost | `:80` | ✅ **https://gymhub-servidor.tailec3350.ts.net** (fija, Funnel) y la de trycloudflare (respaldo) |
 | Grafana | http://localhost:3001 | `:3001` | ❌ |
 | Prometheus | http://localhost:9091 | `:9091` | ❌ |
 | Alertmanager | http://localhost:9093 | `:9093` | ❌ |
@@ -331,7 +333,7 @@ En la tailnet, el host es `gymhub-servidor.tailec3350.ts.net`. Por ejemplo, Graf
 2. Pedirle sus credenciales **por privado**. Cada uno tiene su usuario en Nextcloud y Mantis. Las credenciales están solo en el servidor (`produccion/CREDENCIALES.txt` e `infra/*/.env`), **nunca en el repo, en Jira ni en el grupo de chat**.
 3. Para la base de producción (pgAdmin o DBeaver): host `gymhub-servidor.tailec3350.ts.net`, puerto `5436`.
 
-La URL pública de la app cambia cada vez que se reinicia el túnel. La vigente se consulta desde cualquier dispositivo de la tailnet en `http://gymhub-servidor.tailec3350.ts.net:2000/quicktunnel` (devuelve `{"hostname": "…trycloudflare.com"}`).
+La URL de respaldo de Cloudflare cambia cada vez que se reinicia el túnel. La vigente se consulta desde cualquier dispositivo de la tailnet en `http://gymhub-servidor.tailec3350.ts.net:2000/quicktunnel` (devuelve `{"hostname": "…trycloudflare.com"}`).
 
 ---
 
@@ -351,7 +353,7 @@ Sirve para entender las dependencias y para preguntas de la defensa:
 | **backup** | Nada visible al momento, pero no hay copias nuevas | Flujo de n8n de verificación de backups |
 | **Prometheus** | Nadie vigila: no hay alertas ni gráficos nuevos | Grafana sin datos |
 | **Mantis / n8n / Nextcloud** | La app sigue normal; solo afecta al equipo | — |
-| **El servidor entero** (apagado, reinicio por Windows Update) | Todo cae para todo el equipo; al volver, Docker levanta casi todo solo, salvo n8n y el runner, y **la URL pública cambia** | — |
+| **El servidor entero** (apagado, reinicio por Windows Update) | Todo cae para todo el equipo; al volver, Docker levanta casi todo solo, salvo n8n y el runner. La URL fija de Funnel vuelve sola; la de Cloudflare cambia | — |
 
 ---
 

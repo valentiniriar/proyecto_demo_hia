@@ -1,0 +1,10 @@
+{
+  "summary": "PROD-003: Dependabot propone @angular/cli 22 con el resto de Angular en 21 y el CI falla (lockfile incompleto)",
+  "category": "CI/CD",
+  "severity": "minor",
+  "priority": "normal",
+  "description": "Para la vulnerabilidad moderada GHSA-g3hv-75wg-m249 (minimatch, DoS) Dependabot abrió el PR #91 contra main subiendo solo @angular/cli de 21 a 22. Angular exige la misma versión mayor en todos sus paquetes, y el package-lock.json generado quedó incompleto: npm ci falla con \"Missing: chokidar@6.0.0 from lock file\". La vulnerabilidad está en dependencias de desarrollo del CLI (no llega al bundle) y no hay parche en minimatch 10.x.\n\nDetectada por Francisco Paredes al revisar el CI.",
+  "steps_to_reproduce": "1. gh run view 44658809296 --log-failed → npm ci: Missing: chokidar@6.0.0 from lock file.\n2. PR #91: @angular/cli ^22.3.0 con @angular/core ^21.",
+  "additional_information": "Jira: SCRUM-58 · PR #91 cerrado con explicación · PR: #92 (Dependabot ignora saltos mayores sueltos de @angular/*)",
+  "tags": ["SCRUM-58", "dependencias", "ci"]
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Acceso administrativo remoto por Tailscale (SCRUM-61).
 #
-#   bash scripts/tailscale-serve.sh            # publica los servicios en la tailnet
+#   bash scripts/tailscale-serve.sh            # publica los servicios en la tailnet + la app por Funnel
 #   bash scripts/tailscale-serve.sh --estado   # muestra qué se publica
 #   bash scripts/tailscale-serve.sh --quitar   # deja de publicarlos
 #
@@ -51,6 +51,15 @@ for s in "${SERVICIOS[@]}"; do
   read -r nombre tipo puerto destino <<<"$s"
   "$TS" serve --bg --"$tipo"="$puerto" "$destino" >/dev/null
 done
+
+# Tailscale Funnel: la APP (y solo la app) queda pública en Internet con URL FIJA y HTTPS:
+# https://<nombre>.ts.net. A diferencia del túnel rápido de Cloudflare, no cambia al reiniciar.
+# Requiere habilitar Funnel una vez en la tailnet (el comando muestra el link si falta).
+# GYMHUB_FUNNEL=0 para no publicarla.
+if [ "${GYMHUB_FUNNEL:-1}" = 1 ]; then
+  "$TS" funnel --bg --https=443 http://127.0.0.1:80 >/dev/null
+  echo "✔ App PÚBLICA en Internet (Funnel, URL fija): https://$NOMBRE/"
+fi
 
 echo "✔ Publicado SOLO en la tailnet (dispositivos logueados con la cuenta del equipo):"
 for s in "${SERVICIOS[@]}"; do
