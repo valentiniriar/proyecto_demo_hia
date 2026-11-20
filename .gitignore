@@ -40,6 +40,15 @@ dumps/
 Thumbs.db
 .idea/
 
+# Token del webhook Alertmanager → n8n (lo genera infra/n8n/configurar.sh)
+infra/monitoring/secrets/
+# Temporal de infra/n8n/configurar.sh (credenciales en claro mientras se importan; se borra al terminar)
+infra/n8n/.tmp-configurar/
+
 # Secretos y estado del servidor de producción (ver produccion/LEEME.md). Solo el LEEME se versiona.
 produccion/*
 !produccion/LEEME.md
+
+# Python
+__pycache__/
+*.pyc

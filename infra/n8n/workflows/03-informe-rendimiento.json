@@ -1,0 +1,491 @@
+{
+  "id": "GymHubInforme001",
+  "name": "03 · Informe de rendimiento (analizador Python → Nextcloud)",
+  "active": false,
+  "nodes": [
+    {
+      "id": "nodo-1",
+      "name": "Todos los días 08:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nodo-2",
+      "name": "Ejecutar ahora (prueba)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "nodo-3",
+      "name": "Definir métricas (24 h)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Qué se mide. Umbrales alineados con las alertas de infra/monitoring/prometheus/alerts.\nconst fin = Math.floor(Date.now() / 1000), inicio = fin - 24 * 3600;\nconst m = [\n  { nombre: 'Disponibilidad del backend', unidad: '', umbral_bajo: 1, promql: 'min(probe_success{job=\"blackbox-local-health\",instance=~\".*backend.*\"})' },\n  { nombre: 'Disponibilidad del frontend', unidad: '', umbral_bajo: 1, promql: 'min(probe_success{job=\"blackbox-local-health\",instance=~\".*frontend.*\"})' },\n  { nombre: 'Latencia de /api/health', unidad: 's', umbral_alto: 0.5, promql: 'max(probe_duration_seconds{job=\"blackbox-local-health\"})' },\n  { nombre: 'CPU de los contenedores GymHub', unidad: 'núcleos', umbral_alto: 6, promql: 'sum(rate(container_cpu_usage_seconds_total{name=~\"gymhub.*\"}[5m]))' },\n  { nombre: 'Memoria de los contenedores GymHub', unidad: 'bytes', umbral_alto: 10 * 1024 ** 3, promql: 'sum(container_memory_working_set_bytes{name=~\"gymhub.*\"})' },\n  { nombre: 'Conexiones a PostgreSQL (líder)', unidad: '', umbral_alto: 80, promql: 'sum(pg_stat_activity_count)' },\n  { nombre: 'Réplicas de Patroni en streaming', unidad: '', umbral_bajo: 2, promql: 'sum(patroni_postgres_streaming)' },\n];\nreturn m.map((x) => ({ json: { ...x, inicio, fin, paso: 300 } }));"
+      }
+    },
+    {
+      "id": "nodo-4",
+      "name": "Consultar Prometheus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "url": "http://prometheus:9090/api/v1/query_range",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.promql }}"
+            },
+            {
+              "name": "start",
+              "value": "={{ $json.inicio }}"
+            },
+            {
+              "name": "end",
+              "value": "={{ $json.fin }}"
+            },
+            {
+              "name": "step",
+              "value": "={{ $json.paso }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "nodo-5",
+      "name": "Armar series",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Valida las respuestas de Prometheus y arma el pedido para el analizador.\nconst defs = $('Definir métricas (24 h)').all().map((i) => i.json);\nconst resp = $input.all().map((i) => i.json);\nif (resp.length !== defs.length) throw new Error(`Prometheus devolvió ${resp.length} respuestas para ${defs.length} métricas`);\nconst series = defs.map((d, i) => {\n  const r = resp[i];\n  if (r.status !== 'success') throw new Error(`Prometheus: consulta fallida para \"${d.nombre}\"`);\n  const valores = (r.data?.result?.[0]?.values || []).filter((v) => Array.isArray(v) && v.length === 2);\n  return { nombre: d.nombre, unidad: d.unidad, umbral_alto: d.umbral_alto ?? null, umbral_bajo: d.umbral_bajo ?? null, valores };\n});\nconst iso = (t) => new Date(t * 1000).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';\nreturn [{ json: { desde: iso(defs[0].inicio), hasta: iso(defs[0].fin), series } }];"
+      }
+    },
+    {
+      "id": "nodo-6",
+      "name": "Analizar anomalías (Python)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://analizador:8000/analizar",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "id": "nodo-7",
+      "name": "Preparar informe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const r = $json;\nif (typeof r.markdown !== 'string' || !r.estado_general) throw new Error('El analizador devolvió una respuesta inválida');\nconst ahora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Jujuy' }));\nconst p = (x) => String(x).padStart(2, '0');\nconst archivo = `informe-rendimiento-${ahora.getFullYear()}-${p(ahora.getMonth() + 1)}-${p(ahora.getDate())}-${p(ahora.getHours())}${p(ahora.getMinutes())}.md`;\nconst resumen = r.series.map((s) => `<li>${s.nombre}: <b>${s.severidad}</b>${s.hallazgos.length ? ' — ' + s.hallazgos[0] : ''}</li>`).join('');\nreturn [{ json: { archivo, markdown: r.markdown, estado: r.estado_general, hallazgos: r.hallazgos, resumen } }];"
+      }
+    },
+    {
+      "id": "nodo-8",
+      "name": "Guardar en Nextcloud (Informes-IA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "method": "PUT",
+        "url": "=http://nextcloud/remote.php/dav/files/n8n-bot/Informes-IA/{{ $json.archivo }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/markdown; charset=utf-8",
+        "body": "={{ $json.markdown }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "gymhubNextcloud1",
+          "name": "Nextcloud - n8n-bot (app password)"
+        }
+      }
+    },
+    {
+      "id": "nodo-9",
+      "name": "Avisar al equipo",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "fromEmail": "n8n@gymhub.local",
+        "toEmail": "equipo@gymhub.local",
+        "subject": "=[GymHub] Informe de rendimiento · {{ $(\"Preparar informe\").item.json.estado.toUpperCase() }}",
+        "emailFormat": "html",
+        "html": "=<h2>Informe de rendimiento de GymHub</h2><p>Estado general: <b>{{ $(\"Preparar informe\").item.json.estado }}</b> · hallazgos: {{ $(\"Preparar informe\").item.json.hallazgos }}</p><ul>{{ $(\"Preparar informe\").item.json.resumen }}</ul><p>Informe completo en Nextcloud: <a href=\"http://100.65.22.99:8082/apps/files/?dir=/Informes-IA\">Informes-IA/{{ $(\"Preparar informe\").item.json.archivo }}</a></p><p>Generado por el flujo 3 de n8n con el analizador Python.</p>",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "gymhubMailpit01",
+          "name": "SMTP Mailpit (interno)"
+        }
+      }
+    },
+    {
+      "id": "nodo-10",
+      "name": "¿Estado crítico?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $(\"Preparar informe\").item.json.estado }}",
+              "value2": "critico"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nodo-11",
+      "name": "Sin acción (estado no crítico)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2420,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "nodo-12",
+      "name": "Pedir aprobación",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2640,
+        300
+      ],
+      "parameters": {
+        "fromEmail": "n8n@gymhub.local",
+        "toEmail": "equipo@gymhub.local",
+        "subject": "=[GymHub] ¿Escalar el informe crítico como incidencia?",
+        "emailFormat": "html",
+        "html": "=<h2>El informe de rendimiento salió CRÍTICO</h2><ul>{{ $(\"Preparar informe\").item.json.resumen }}</ul><p>¿Abrir una incidencia de rendimiento en Mantis y asignarla?</p><p><a href=\"{{ $execution.resumeUrl }}?decision=aprobar\">✅ Aprobar</a> &nbsp; · &nbsp; <a href=\"{{ $execution.resumeUrl }}?decision=rechazar\">❌ Rechazar</a></p><p>El pedido vence en 24 horas.</p>",
+        "options": {}
+      },
+      "credentials": {
+        "smtp": {
+          "id": "gymhubMailpit01",
+          "name": "SMTP Mailpit (interno)"
+        }
+      }
+    },
+    {
+      "id": "nodo-13",
+      "name": "Esperar decisión (24 h)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2860,
+        300
+      ],
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "GET",
+        "limitWaitTime": true,
+        "limitType": "afterTimeInterval",
+        "resumeAmount": 24,
+        "resumeUnit": "hours",
+        "options": {}
+      },
+      "webhookId": "gymhub-aprobacion-informe"
+    },
+    {
+      "id": "nodo-14",
+      "name": "¿Aprobado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        3080,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.query?.decision || \"vencido\" }}",
+              "value2": "aprobar"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "nodo-15",
+      "name": "Abrir incidencia de rendimiento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3300,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://mantis/api/rest/issues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  project: { name: 'GymHub' }, category: { name: 'Rendimiento' }, severity: { name: 'major' },\n  priority: { name: 'high' }, reproducibility: { name: 'have not tried' },\n  summary: '[n8n] Informe de rendimiento CRÍTICO: ' + $('Preparar informe').item.json.archivo,\n  description: $('Preparar informe').item.json.markdown.slice(0, 8000),\n  additional_information: 'Escalada con aprobación humana desde el flujo 3 de n8n. Informe en Nextcloud: Informes-IA/' + $('Preparar informe').item.json.archivo,\n  tags: [{ name: 'rendimiento' }, { name: 'n8n' }]\n}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "gymhubMantisBot",
+          "name": "Mantis - token n8n-bot"
+        }
+      }
+    },
+    {
+      "id": "nodo-16",
+      "name": "Registrar rechazo o vencimiento",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        300
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { resultado: 'NO ESCALADO', decision: $json.query?.decision || 'vencido (24 h sin respuesta)' } }];"
+      }
+    }
+  ],
+  "connections": {
+    "Todos los días 08:00": {
+      "main": [
+        [
+          {
+            "node": "Definir métricas (24 h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar ahora (prueba)": {
+      "main": [
+        [
+          {
+            "node": "Definir métricas (24 h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Definir métricas (24 h)": {
+      "main": [
+        [
+          {
+            "node": "Consultar Prometheus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Prometheus": {
+      "main": [
+        [
+          {
+            "node": "Armar series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar series": {
+      "main": [
+        [
+          {
+            "node": "Analizar anomalías (Python)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analizar anomalías (Python)": {
+      "main": [
+        [
+          {
+            "node": "Preparar informe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar informe": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Nextcloud (Informes-IA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en Nextcloud (Informes-IA)": {
+      "main": [
+        [
+          {
+            "node": "Avisar al equipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisar al equipo": {
+      "main": [
+        [
+          {
+            "node": "¿Estado crítico?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Estado crítico?": {
+      "main": [
+        [
+          {
+            "node": "Pedir aprobación",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sin acción (estado no crítico)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pedir aprobación": {
+      "main": [
+        [
+          {
+            "node": "Esperar decisión (24 h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar decisión (24 h)": {
+      "main": [
+        [
+          {
+            "node": "¿Aprobado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Aprobado?": {
+      "main": [
+        [
+          {
+            "node": "Abrir incidencia de rendimiento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar rechazo o vencimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "saveManualExecutions": true,
+    "errorWorkflow": "GymHubErrores001"
+  },
+  "pinData": {},
+  "tags": []
+}

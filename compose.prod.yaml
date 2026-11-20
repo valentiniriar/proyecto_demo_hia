@@ -40,6 +40,10 @@ services:
       DB_USER: ${DB_USER:?DB_USER no definida}
       DB_PASS: ${DB_PASS:?DB_PASS no definida}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET no definida}
+      # Eventos de seguridad (login fallido, rate limit, login de admin) → n8n, flujo 04 (SCRUM-84).
+      # n8n está en la red gymhub_prod_frontend_net con el alias "n8n". Sin el secreto, el backend no envía.
+      SECURITY_EVENTS_WEBHOOK_URL: http://n8n:5678/webhook/gymhub-seguridad
+      SECURITY_EVENTS_WEBHOOK_SECRET: ${SECURITY_EVENTS_WEBHOOK_SECRET:-}
 
   # Cluster Patroni de producción: ningún nodo ni HAProxy exponen puertos al host del servidor
   # (se entra por el puente 5436). Nombres propios para no chocar con los de desarrollo en la misma PC.
