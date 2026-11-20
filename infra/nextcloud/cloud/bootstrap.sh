@@ -26,6 +26,9 @@ CARPETAS=(
   09-Publicación 10-Monitoreo 11-Incidencias 12-Documental 13-n8n 14-Seguridad 15-Final
 )
 CARPETA_IA=Informes-IA
+# Manual de errores (lo lee el flujo 05 de n8n) y diagnósticos que genera ese flujo.
+CARPETA_MANUAL=Manual-Operaciones
+CARPETA_DIAG=Diagnosticos
 
 # usuario | nombre visible | grupo ("" = sin grupo)
 USUARIOS=(
@@ -116,7 +119,17 @@ id=$(asegurar_carpeta "$CARPETA_IA")
 permisos "$id" equipo           write share delete
 permisos "$id" docentes-lectura
 permisos "$id" n8n-servicio     write          # crear/modificar; sin borrar ni compartir
-log "→ matriz de permisos aplicada a las ${#CARPETAS[@]} carpetas + $CARPETA_IA"
+# El manual lo mantiene el equipo; n8n solo lo LEE (no puede alterar las instrucciones que sigue).
+id=$(asegurar_carpeta "$CARPETA_MANUAL")
+permisos "$id" equipo           write share delete
+permisos "$id" docentes-lectura
+permisos "$id" n8n-servicio
+# Los diagnósticos los escribe n8n (sin borrar ni compartir).
+id=$(asegurar_carpeta "$CARPETA_DIAG")
+permisos "$id" equipo           write share delete
+permisos "$id" docentes-lectura
+permisos "$id" n8n-servicio     write
+log "→ matriz de permisos aplicada a las ${#CARPETAS[@]} carpetas + $CARPETA_IA, $CARPETA_MANUAL y $CARPETA_DIAG"
 
 # 5. Compartición: nadie publica enlaces; docentes y n8n no pueden compartir nada.
 occ config:app:set core shareapi_allow_links --value=no >/dev/null
