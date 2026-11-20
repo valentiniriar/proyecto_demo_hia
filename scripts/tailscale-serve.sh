@@ -32,6 +32,8 @@ SERVICIOS=(
   "Mantis          http ${MAN:-8990}       http://127.0.0.1:${MAN:-8990}"
   "n8n             http ${N8NP:-5679}      http://127.0.0.1:${N8NP:-5679}"
   "Nextcloud       http ${NCP:-8082}       http://127.0.0.1:${NCP:-8082}"
+  # Métricas de cloudflared: /quicktunnel devuelve la URL pública vigente del túnel rápido.
+  "Tunel-URL       http 2000               http://127.0.0.1:2000"
   "Base-produccion tcp  5436               tcp://127.0.0.1:5436"
 )
 
@@ -53,6 +55,8 @@ done
 echo "✔ Publicado SOLO en la tailnet (dispositivos logueados con la cuenta del equipo):"
 for s in "${SERVICIOS[@]}"; do
   read -r nombre tipo puerto destino <<<"$s"
-  if [ "$tipo" = tcp ]; then url="$NOMBRE:$puerto (PostgreSQL)"; else url="http://$NOMBRE:$puerto/"; fi
+  if [ "$tipo" = tcp ]; then url="$NOMBRE:$puerto (PostgreSQL)"
+  elif [ "$nombre" = Tunel-URL ]; then url="http://$NOMBRE:$puerto/quicktunnel"
+  else url="http://$NOMBRE:$puerto/"; fi
   printf '  %-16s %s\n' "$nombre" "$url"
 done

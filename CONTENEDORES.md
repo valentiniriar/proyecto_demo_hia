@@ -330,6 +330,7 @@ Ningún servicio escucha en `0.0.0.0`: **todo está en `127.0.0.1`**, es decir, 
 | Mantis | http://localhost:8990 | `:8990` | ❌ |
 | n8n | http://localhost:5679 | `:5679` | ❌ |
 | Nextcloud | http://localhost:8082 | `:8082` | ❌ |
+| URL pública vigente del túnel | http://localhost:2000/quicktunnel | `:2000/quicktunnel` | ❌ |
 | Base de producción | `localhost:5436` | `:5436` | ❌ |
 
 En la tailnet, el host es `gymhub-servidor.tailec3350.ts.net`. Por ejemplo, Grafana queda en `http://gymhub-servidor.tailec3350.ts.net:3001/`.
@@ -339,7 +340,7 @@ En la tailnet, el host es `gymhub-servidor.tailec3350.ts.net`. Por ejemplo, Graf
 2. Pedirle sus credenciales **por privado**. Cada uno tiene su usuario en Nextcloud y Mantis. Las credenciales están solo en el servidor (`produccion/CREDENCIALES.txt` e `infra/*/.env`), **nunca en el repo, en Jira ni en el grupo de chat**.
 3. Para la base de producción (pgAdmin o DBeaver): host `gymhub-servidor.tailec3350.ts.net`, puerto `5436`.
 
-La URL pública de la app cambia cada vez que se reinicia el túnel. La vigente se consulta en el servidor con `bash scripts/deploy.sh --tunel`, o se le pide a Francisco.
+La URL pública de la app cambia cada vez que se reinicia el túnel. La vigente se consulta desde cualquier dispositivo de la tailnet en `http://gymhub-servidor.tailec3350.ts.net:2000/quicktunnel` (devuelve `{"hostname": "…trycloudflare.com"}`).
 
 ---
 
