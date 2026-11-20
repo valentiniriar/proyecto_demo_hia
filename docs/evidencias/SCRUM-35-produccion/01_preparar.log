@@ -1,0 +1,43 @@
+Time: 0.135 ms
+Time: 15.476 ms
+Time: 6.382 ms
+Time: 0.725 ms
+Time: 0.441 ms
+Time: 0.520 ms
+Time: 0.542 ms
+Time: 0.586 ms
+Time: 0.405 ms
+Time: 0.541 ms
+Time: 0.387 ms
+Time: 0.447 ms
+Time: 0.446 ms
+Time: 0.813 ms
+Time: 0.378 ms
+Time: 1.582 ms
+Time: 0.351 ms
+Time: 0.323 ms
+Time: 0.374 ms
+Time: 0.441 ms
+Time: 0.598 ms
+Time: 0.315 ms
+Time: 0.347 ms
+Time: 0.422 ms
+psql:<stdin>:291: NOTICE:  FK eliminada: pagos.pagos_tarifaId_fkey
+psql:<stdin>:291: NOTICE:  FK eliminada: rutina_ejercicios.rutina_ejercicios_id_ejercicio_fkey
+psql:<stdin>:291: NOTICE:  FK eliminada: rutina_ejercicios.rutina_ejercicios_id_rutina_fkey
+psql:<stdin>:291: NOTICE:  FK eliminada: rutinas.rutinas_usuarioId_fkey
+psql:<stdin>:291: NOTICE:  FK eliminada: suscripciones.suscripciones_usuarioId_fkey
+psql:<stdin>:291: NOTICE:  FK eliminada: tarifas.tarifas_suscripcionId_fkey
+psql:<stdin>:291: NOTICE:  FK eliminada: usuario_roles.usuario_roles_id_rol_fkey
+psql:<stdin>:291: NOTICE:  FK eliminada: usuario_roles.usuario_roles_id_usuario_fkey
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: pagos.pagos_pkey
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: rutina_ejercicios.rutina_ejercicios_pkey
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: rutinas.rutinas_pkey
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: suscripciones.suscripciones_pkey
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: tarifas.tarifas_pkey
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: usuario_roles.usuario_roles_pkey
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: usuarios.usuarios_dni_key
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: usuarios.usuarios_email_key
+psql:<stdin>:291: NOTICE:  PK/UNIQUE eliminada: usuarios.usuarios_pkey
+Time: 24.804 ms
+Time: 28.924 ms
