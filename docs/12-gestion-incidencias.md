@@ -93,3 +93,19 @@ Historial completo de las 18 incidencias: [`evidencias/SCRUM-72/historial-mantis
 | Cierre con evidencia (captura, log o test) | ✔ Nota de cierre en cada incidencia + `docs/evidencias/SCRUM-72/` |
 | Historial de estados visible (asignada → resuelta → cerrada) | ✔ Sección 4 + export completo |
 | Documento obligatorio n.º 12 (Gestión de incidencias) | ✔ Este documento |
+
+## 7. Instancia de producción (servidor del equipo)
+
+El registro de arriba se hizo en la instancia de Mantis de un integrante. El 20/11/2026 se **migró al Mantis del servidor de producción** (`gymhub-mantis`, accesible por Tailscale en `http://gymhub-servidor.tailec3350.ts.net:8990`), que es el que se muestra en la demo.
+
+- **Cómo:** [`infra/mantis/cargar-registro.js`](../infra/mantis/cargar-registro.js) lee [`infra/mantis/registro-incidencias.json`](../infra/mantis/registro-incidencias.json) (archivo, responsable, PR, verificación y estado de cada incidencia) y recorre el ciclo completo por la API REST: creación → asignación → resolución con el PR → nota de verificación → cierre. Es idempotente (saltea las que ya existen), así que sirve para recrear el registro en cualquier instancia.
+- **Qué se cargó:** las 14 incidencias del relevamiento y de SCRUM-81, más **3 incidencias reales de producción** detectadas al operar el servidor:
+
+  | Mantis (prod) | Incidencia | Categoría | PR |
+  |---|---|---|---|
+  | #15 | PROD-001: con 6M filas, "mis rutinas"/"mis tarifas" tardaban 4,2 s y el dashboard 10 s | Rendimiento | [#100](https://github.com/valentiniriar/proyecto_demo_hia/pull/100) |
+  | #16 | PROD-002: la web pública se caía y no volvía (túnel rápido de Cloudflare) | Infraestructura | [#87](https://github.com/valentiniriar/proyecto_demo_hia/pull/87), [#98](https://github.com/valentiniriar/proyecto_demo_hia/pull/98) |
+  | #17 | PROD-003: PR de Dependabot con Angular mezclado y CI roto | CI/CD | [#92](https://github.com/valentiniriar/proyecto_demo_hia/pull/92) |
+
+- **Resultado:** 17 incidencias, 16 cerradas y 1 asignada (BUG-008, pendiente de SCRUM-83). Los 4 eventos de la prueba del flujo n8n 4 (#5–#8 de la instancia original) no se migraron: los genera el flujo al probarlo.
+- **Autoría:** en la instancia de producción las transiciones figuran a nombre de quien ejecutó la carga; cada incidencia tiene una nota con su responsable original, y el historial con fechas y autores originales sigue en [`evidencias/SCRUM-72/historial-mantis.txt`](evidencias/SCRUM-72/historial-mantis.txt). Export de producción: [`evidencias/SCRUM-72-produccion/historial-mantis.txt`](evidencias/SCRUM-72-produccion/historial-mantis.txt).
