@@ -231,8 +231,10 @@ const mantisPost = (name, jsonBody) => nodo(name, 'httpRequest', 4.2, {
   const pedir = mail('Pedir aprobación', '=[GymHub] ¿Escalar el informe crítico como incidencia?',
     '=<h2>El informe de rendimiento salió CRÍTICO</h2><ul>{{ $("Preparar informe").item.json.resumen }}</ul>' +
     '<p>¿Abrir una incidencia de rendimiento en Mantis y asignarla?</p>' +
-    '<p><a href="{{ $execution.resumeUrl }}?decision=aprobar">✅ Aprobar</a> &nbsp; · &nbsp; ' +
-    '<a href="{{ $execution.resumeUrl }}?decision=rechazar">❌ Rechazar</a></p><p>El pedido vence en 24 horas.</p>');
+    // resumeUrl ya trae "?signature=…": la decisión va con "&". Con "?" quedaba pegada a la firma y n8n
+    // respondía 401 "Invalid token" (encontrado en la prueba de producción del 20/11/2026).
+    '<p><a href="{{ $execution.resumeUrl + ($execution.resumeUrl.includes("?") ? "&" : "?") }}decision=aprobar">✅ Aprobar</a> &nbsp; · &nbsp; ' +
+    '<a href="{{ $execution.resumeUrl + ($execution.resumeUrl.includes("?") ? "&" : "?") }}decision=rechazar">❌ Rechazar</a></p><p>El pedido vence en 24 horas.</p>');
   const esperar = nodo('Esperar decisión (24 h)', 'wait', 1.1, {
     resume: 'webhook', httpMethod: 'GET', limitWaitTime: true, limitType: 'afterTimeInterval',
     resumeAmount: 24, resumeUnit: 'hours', options: {},
