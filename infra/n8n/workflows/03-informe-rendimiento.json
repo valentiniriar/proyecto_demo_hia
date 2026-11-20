@@ -228,7 +228,7 @@
         "toEmail": "equipo@gymhub.local",
         "subject": "=[GymHub] ¿Escalar el informe crítico como incidencia?",
         "emailFormat": "html",
-        "html": "=<h2>El informe de rendimiento salió CRÍTICO</h2><ul>{{ $(\"Preparar informe\").item.json.resumen }}</ul><p>¿Abrir una incidencia de rendimiento en Mantis y asignarla?</p><p><a href=\"{{ $execution.resumeUrl }}?decision=aprobar\">✅ Aprobar</a> &nbsp; · &nbsp; <a href=\"{{ $execution.resumeUrl }}?decision=rechazar\">❌ Rechazar</a></p><p>El pedido vence en 24 horas.</p>",
+        "html": "=<h2>El informe de rendimiento salió CRÍTICO</h2><ul>{{ $(\"Preparar informe\").item.json.resumen }}</ul><p>¿Abrir una incidencia de rendimiento en Mantis y asignarla?</p><p><a href=\"{{ $execution.resumeUrl + ($execution.resumeUrl.includes(\"?\") ? \"&\" : \"?\") }}decision=aprobar\">✅ Aprobar</a> &nbsp; · &nbsp; <a href=\"{{ $execution.resumeUrl + ($execution.resumeUrl.includes(\"?\") ? \"&\" : \"?\") }}decision=rechazar\">❌ Rechazar</a></p><p>El pedido vence en 24 horas.</p>",
         "options": {}
       },
       "credentials": {
