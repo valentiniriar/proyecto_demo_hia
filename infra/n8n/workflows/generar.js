@@ -280,7 +280,34 @@ const mantisPost = (name, jsonBody) => nodo(name, 'httpRequest', 4.2, {
   const inc = nodes.find((x) => x.name === 'Crear incidencia en Mantis');
   inc.parameters.url = 'http://mantis/api/rest/issues';
   inc.credentials = CRED.mantis;
-  escribir('04-eventos-seguridad.json', flujo(ID.seguridad, '04 · Eventos de seguridad del backend → Mantis', nodes, o.connections));
+  // Deduplicación contra Mantis (fuente de verdad). La de staticData no alcanza con eventos simultáneos:
+  // n8n carga la memoria del flujo al RECIBIR el webhook, así que 6 avisos en paralelo abrían 6 incidencias
+  // (20/11/2026). Con N8N_CONCURRENCY_PRODUCTION_LIMIT=1 las ejecuciones van en fila y cada una ve en Mantis
+  // lo que creó la anterior.
+  const buscar = nodo('Buscar incidencias recientes en Mantis', 'httpRequest', 4.2, {
+    url: 'http://mantis/api/rest/issues?page_size=50', authentication: 'genericCredentialType',
+    genericAuthType: 'httpHeaderAuth', options: { timeout: 15000 },
+  }, { credentials: CRED.mantis, position: [880, 160] });
+  const marcar = nodo('¿Ya hay una abierta?', 'code', 2, { jsCode: [
+    "const inc = $('Clasificar y deduplicar').item.json;",
+    "const resumen = '[n8n] ' + inc.incidencia.resumen;",
+    "const hace1h = Date.now() - 3600 * 1000;",
+    "const previa = ($json.issues || []).find((i) => i.summary === resumen && i.status?.name !== 'closed'",
+    "  && Date.parse(i.created_at) > hace1h);",
+    "return [{ json: { ...inc, duplicada: Boolean(previa), previa: previa ? previa.id : null } }];",
+  ].join('\n') }, { position: [1100, 160] });
+  const iffDup = nodo('¿Duplicada?', 'if', 1, { conditions: { boolean: [{ value1: '={{ $json.duplicada }}', value2: true }] } },
+    { position: [1320, 160] });
+  const dup = nodo('Duplicada (ya está en Mantis)', 'noOp', 1, {}, { position: [1540, 60] });
+  inc.position = [1540, 260];
+  nodes.push(buscar, marcar, iffDup, dup);
+  const conn = JSON.parse(JSON.stringify(o.connections));
+  const si = conn['¿Abrir incidencia?'].main[0];
+  si.splice(0, si.length, { node: buscar.name, type: 'main', index: 0 });
+  Object.assign(conn, conectar([[buscar.name, marcar.name], [marcar.name, iffDup.name],
+    [iffDup.name, dup.name, 0], [iffDup.name, inc.name, 1]]));
+  // El body de "Crear incidencia" usa $json.incidencia y $json.evento: "¿Ya hay una abierta?" los conserva.
+  escribir('04-eventos-seguridad.json', flujo(ID.seguridad, '04 · Eventos de seguridad del backend → Mantis', nodes, conn));
 }
 
 console.log('Flujos generados en', DIR);

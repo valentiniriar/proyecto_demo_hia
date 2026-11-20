@@ -46,6 +46,12 @@ services:
       N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES: 'true'
       # Los nodos de archivos solo pueden leer los backups (flujo 2), nada más del contenedor.
       N8N_RESTRICT_FILE_ACCESS_TO: /backups
+      # Ejecuciones de producción DE A UNA. La deduplicación de los flujos 01 y 04 vive en staticData, que
+      # se lee al empezar y se guarda al terminar: con eventos simultáneos, cada ejecución leía la memoria
+      # antes de que las otras la guardaran y abría la misma incidencia varias veces (6 avisos en paralelo →
+      # 6 incidencias, 20/11/2026). En fila, la siguiente ve lo que guardó la anterior. Los flujos tardan
+      # milisegundos (el 03, unos segundos), así que a esta escala no se nota.
+      N8N_CONCURRENCY_PRODUCTION_LIMIT: '1'
       # Se guardan todas las ejecuciones (exitosas y fallidas) 14 días: registro de ejecuciones y errores.
       EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
       EXECUTIONS_DATA_SAVE_ON_ERROR: all
