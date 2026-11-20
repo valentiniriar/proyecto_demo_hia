@@ -48,6 +48,8 @@ else
   "database": "${DB_NAME:-demo_hia}"
 }
 JSONEOF
+    # Un pg_dump fallido deja un archivo vacío o incompleto: se borra para que no parezca un backup.
+    rm -f "$FILEPATH"
     echo "[$(date -Iseconds)] ERROR al realizar el backup de la base de datos." | tee -a "$LOG_FILE"
     exit 1
 fi
