@@ -86,6 +86,12 @@ desplegar() {
     log "→ Descargando imágenes $tag de GHCR"
     IMAGE_TAG="$tag" "${COMPOSE[@]}" pull backend frontend
   fi
+  # Imágenes que se construyen en el servidor (no están en GHCR): sin este build, un cambio en
+  # database/backup/ o database/patroni/ nunca llegaba a producción, porque "up" reutiliza la imagen
+  # local existente. Con caché, si no cambió nada no recrea ningún contenedor. pg-1 construye la imagen
+  # que comparten los 3 nodos de Patroni.
+  log "→ Construyendo imágenes locales (backup, Patroni)"
+  IMAGE_TAG="$tag" "${COMPOSE[@]}" build backup pg-1
   log "→ Levantando servicios con IMAGE_TAG=$tag"
   # --wait: espera a que los servicios con healthcheck (db, réplica, backend) estén healthy.
   IMAGE_TAG="$tag" "${COMPOSE[@]}" up -d --wait --wait-timeout 240 "${SERVICIOS[@]}"
