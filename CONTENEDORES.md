@@ -324,6 +324,7 @@ Ningún servicio escucha en `0.0.0.0`: **todo está en `127.0.0.1`**, es decir, 
 | n8n | http://localhost:5679 | `:5679` | ❌ |
 | Nextcloud | http://localhost:8082 | `:8082` | ❌ |
 | URL pública vigente del túnel | http://localhost:2000/quicktunnel | `:2000/quicktunnel` | ❌ |
+| Estado de HAProxy (qué nodo de Patroni es líder) | http://localhost:7000 | `:7000` | ❌ |
 | Base de producción | `localhost:5436` | `:5436` | ❌ |
 
 En la tailnet, el host es `gymhub-servidor.tailec3350.ts.net`. Por ejemplo, Grafana queda en `http://gymhub-servidor.tailec3350.ts.net:3001/`.
