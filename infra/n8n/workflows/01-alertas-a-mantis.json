@@ -117,6 +117,29 @@
       ]
     },
     {
+      "id": "nodo-1",
+      "name": "Diagnosticar con el manual (flujo 05)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "GymHubDiagnost1",
+          "mode": "id"
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
       "parameters": {
         "method": "POST",
         "url": "={{ \"http://mantis/api/rest/issues/\" + $json.issueId + \"/notes\" }}",
@@ -134,7 +157,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1100,
+        1320,
         300
       ],
       "credentials": {
@@ -154,25 +177,25 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
+        1540,
         300
       ]
     },
     {
-      "id": "nodo-1",
+      "id": "nodo-2",
       "name": "Avisar al responsable",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        1540,
+        1760,
         300
       ],
       "parameters": {
         "fromEmail": "n8n@gymhub.local",
         "toEmail": "equipo@gymhub.local",
-        "subject": "=[GymHub] Nueva incidencia #{{$json.issueId}} por alerta de monitoreo",
+        "subject": "=[GymHub] Nueva incidencia #{{$(\"Guardar ID de incidencia\").item.json.issueId}} por alerta de monitoreo{{ $json.codigo ? \" · \" + $json.codigo : \"\" }}",
         "emailFormat": "html",
-        "html": "=<h2>Alerta de monitoreo - GymHub</h2>\n<p>Se ha creado una nueva incidencia en Mantis.</p>\n<p><strong>ID:</strong> #{{$json.issueId}}</p>\n<p><strong>Fingerprint:</strong> {{$json.fingerprint}}</p>\n<p>\n  <a href=\"{{$json.link}}\">\n    Ver incidencia en Mantis\n  </a>\n</p>\n<p>Notificación automática generada por n8n.</p>",
+        "html": "=<h2>Alerta de monitoreo - GymHub</h2><p>Se creó una nueva incidencia en Mantis.</p><p><strong>ID:</strong> #{{$(\"Guardar ID de incidencia\").item.json.issueId}} · <a href=\"{{$(\"Guardar ID de incidencia\").item.json.link}}\">Ver incidencia en Mantis</a></p>{{ $json.codigo ? \"<h3>Diagnóstico (\" + $json.codigo + \" · \" + $json.titulo + \")</h3><p>\" + $json.conclusion_html + \"</p>\" + \"<p>Diagnóstico completo en Nextcloud: <a href=\\\"http://100.65.22.99:8082/apps/files/?dir=/Diagnosticos\\\">Diagnosticos/\" + $json.archivo + \"</a></p>\" : \"<p>No se pudo generar el diagnóstico automático: pedirlo con el número de incidencia en el flujo 05.</p>\" }}<p>Notificación automática generada por n8n.</p>",
         "options": {}
       },
       "credentials": {
@@ -247,6 +270,17 @@
       ]
     },
     "Guardar ID de incidencia": {
+      "main": [
+        [
+          {
+            "node": "Diagnosticar con el manual (flujo 05)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diagnosticar con el manual (flujo 05)": {
       "main": [
         [
           {

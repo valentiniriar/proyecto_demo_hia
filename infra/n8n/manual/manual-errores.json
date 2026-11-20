@@ -1,0 +1,487 @@
+{
+  "titulo": "Manual de errores de GymHub (producción)",
+  "version": "1.0",
+  "actualizado": "2026-11-20",
+  "uso": "Cada error tiene un código (GH-XXX-NNN). El flujo 05 de n8n busca el código, lee esta entrada desde Nextcloud (Manual-Operaciones/manual-errores.json), consulta el estado actual en Prometheus y guarda el diagnóstico en Nextcloud (Diagnosticos/). Se le puede pasar el código o el número de incidencia de Mantis. Los comandos se corren en la PC servidor (PowerShell).",
+  "consultas": {
+    "lider": { "nombre": "Líder actual del cluster", "promql": "patroni_primary{job=\"patroni\"} == 1", "tipo": "lista" },
+    "nodos_caidos": { "nombre": "Nodos de Patroni sin responder", "promql": "up{job=\"patroni\"} == 0", "tipo": "lista" },
+    "nodos_vivos": { "nombre": "Nodos de Patroni respondiendo", "promql": "up{job=\"patroni\"} == 1", "tipo": "lista" },
+    "replicas": { "nombre": "Réplicas en streaming", "promql": "sum(patroni_replica{job=\"patroni\"} * on(instance) patroni_postgres_streaming{job=\"patroni\"})", "tipo": "valor" },
+    "timeline": { "nombre": "Timeline del cluster (sube 1 con cada failover)", "promql": "max(patroni_postgres_timeline{job=\"patroni\"})", "tipo": "valor" },
+    "lag": { "nombre": "Atraso de cada réplica (WAL)", "promql": "scalar(max(patroni_xlog_location{job=\"patroni\"})) - (patroni_xlog_replayed_location{job=\"patroni\"} and on(instance) patroni_replica{job=\"patroni\"} == 1)", "tipo": "lista", "unidad": "bytes" },
+    "api": { "nombre": "API del backend (/api/health)", "promql": "probe_success{job=\"blackbox-local-health\",instance=\"http://backend:3000/api/health\"}", "tipo": "valor", "unidad": "ok" },
+    "front": { "nombre": "Frontend (Nginx → /api/health)", "promql": "probe_success{job=\"blackbox-local-health\",instance=\"http://frontend:8080/api/health\"}", "tipo": "valor", "unidad": "ok" },
+    "pg_up": { "nombre": "PostgreSQL visto por postgres-exporter", "promql": "pg_up{job=\"postgres-primary\"}", "tipo": "valor", "unidad": "ok" },
+    "conexiones": { "nombre": "Conexiones a la base gymhub", "promql": "sum(pg_stat_database_numbackends{job=\"postgres-primary\",datname=\"gymhub\"})", "tipo": "valor" },
+    "cpu": { "nombre": "CPU de la VM de Docker", "promql": "100 * (1 - avg(rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[5m])))", "tipo": "valor", "unidad": "%" },
+    "memoria": { "nombre": "Memoria de la VM de Docker", "promql": "100 * (1 - node_memory_MemAvailable_bytes{job=\"node-exporter\"} / node_memory_MemTotal_bytes{job=\"node-exporter\"})", "tipo": "valor", "unidad": "%" },
+    "disco": { "nombre": "Disco de la VM de Docker", "promql": "max(100 * (1 - node_filesystem_avail_bytes{job=\"node-exporter\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"node-exporter\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\"}))", "tipo": "valor", "unidad": "%" },
+    "exporters": { "nombre": "Exporters caídos", "promql": "up{job=~\"node-exporter|cadvisor|postgres-primary|blackbox-exporter\"} == 0", "tipo": "lista" },
+    "reinicios": { "nombre": "Inicios de contenedores en 10 min", "promql": "sum(changes(container_start_time_seconds{job=\"cadvisor\"}[10m]))", "tipo": "valor" },
+    "url_publica": { "nombre": "URL pública (sonda externa)", "promql": "probe_success{job=\"blackbox-publico\"}", "tipo": "lista", "unidad": "ok" },
+    "latencia_publica": { "nombre": "Latencia de la URL pública", "promql": "probe_duration_seconds{job=\"blackbox-publico\"}", "tipo": "lista", "unidad": "s" },
+    "cert_dias": { "nombre": "Días hasta que vence el certificado", "promql": "(probe_ssl_earliest_cert_expiry{job=\"blackbox-publico\"} - time()) / 86400", "tipo": "lista" },
+    "tunel_up": { "nombre": "Contenedor cloudflared", "promql": "up{job=\"cloudflared\"}", "tipo": "valor", "unidad": "ok" },
+    "tunel_conexiones": { "nombre": "Conexiones del túnel con Cloudflare", "promql": "sum(cloudflared_tunnel_ha_connections)", "tipo": "valor" },
+    "tunel_errores": { "nombre": "Errores del túnel hacia el origen (5 min)", "promql": "sum(increase(cloudflared_tunnel_request_errors[5m]))", "tipo": "valor" }
+  },
+  "errores": [
+    {
+      "codigo": "GH-DB-001",
+      "alerta": "GymHubNodoPatroniCaido",
+      "componente": "Base de datos (cluster Patroni)",
+      "severidad": "warning",
+      "titulo": "Un nodo del cluster PostgreSQL está caído",
+      "que_significa": "Prometheus no llega a la API de Patroni (puerto 8008) de uno de los nodos pg-1, pg-2 o pg-3. Si el nodo caído era el LÍDER (maestro), Patroni promueve una réplica sola en unos 20-30 s (ttl de 20 s en etcd) y HAProxy pasa a mandar las escrituras al nuevo líder.",
+      "impacto": "Si era una réplica: ninguno para los usuarios, pero el cluster tiene menos redundancia. Si era el líder: 20-30 s de escrituras fallidas hasta que termina la elección; después la app sigue normal.",
+      "causas": [
+        "El contenedor se detuvo (docker stop, reinicio de Docker Desktop o prueba de caída del maestro).",
+        "PostgreSQL o Patroni dentro del contenedor terminaron con error (ver logs).",
+        "Falta de memoria o disco en la VM de Docker.",
+        "El nodo perdió la conexión con etcd y se bajó a sí mismo."
+      ],
+      "diagnostico": [
+        "Ver el estado del cluster: docker exec gymhub_pg_1_prod patronictl -c /etc/patroni/patroni.yml list (usar un nodo que esté vivo).",
+        "Ver qué contenedor está parado: docker ps -a --filter name=gymhub_pg_",
+        "Ver por qué se cayó: docker logs --tail 100 gymhub_pg_N_prod (N = número del nodo caído). Exited (137) = lo detuvieron a la fuerza; Exited (1) = error.",
+        "Confirmar que HAProxy apunta al nuevo líder: http://100.65.22.99:7000 (en el bloque 5432 solo el líder está en verde).",
+        "Confirmar que la app responde: https://gymhub-servidor.tailec3350.ts.net/api/health"
+      ],
+      "solucion": [
+        "Volver a levantar el nodo: docker start gymhub_pg_N_prod",
+        "El nodo vuelve como RÉPLICA (no recupera el liderazgo) y se sincroniza solo con el líder actual (pg_rewind si hace falta).",
+        "Si no arranca, revisar los logs; como último recurso reinicializarlo: docker exec <nodo vivo> patronictl -c /etc/patroni/patroni.yml reinit gymhub-prod pg-N"
+      ],
+      "verificacion": [
+        "patronictl list muestra 3 miembros: 1 Leader y 2 Replica en estado streaming con Lag 0.",
+        "La alerta GymHubNodoPatroniCaido se resuelve sola y n8n agrega la nota de resolución en Mantis."
+      ],
+      "escalar": "Si el nodo no vuelve en 15 minutos o se cae de nuevo, avisar al responsable de base de datos.",
+      "consultas": ["lider", "nodos_caidos", "nodos_vivos", "replicas", "timeline", "api"]
+    },
+    {
+      "codigo": "GH-DB-002",
+      "alerta": "GymHubSinLider",
+      "componente": "Base de datos (cluster Patroni)",
+      "severidad": "critical",
+      "titulo": "El cluster PostgreSQL no tiene líder",
+      "que_significa": "Ningún nodo acepta escrituras. Durante un failover normal pasa unos segundos; si dura más de 30 s, la elección no puede completarse.",
+      "impacto": "La app no puede guardar nada (altas, pagos, rutinas). Las lecturas por el puerto 5433 pueden seguir funcionando.",
+      "causas": [
+        "etcd caído o sin quórum: Patroni no puede tomar el bloqueo de líder.",
+        "Todas las réplicas atrasadas más de 1 MB (maximum_lag_on_failover): Patroni no promueve ninguna para no perder datos.",
+        "Los tres nodos caídos.",
+        "Cluster en modo pausa (patronictl pause)."
+      ],
+      "diagnostico": [
+        "Estado del cluster: docker exec gymhub_pg_1_prod patronictl -c /etc/patroni/patroni.yml list",
+        "Salud de etcd: docker exec gymhub_etcd_prod etcdctl endpoint health",
+        "Logs de Patroni: docker logs --tail 100 gymhub_pg_1_prod (buscar 'no action', 'failed to acquire', 'lag').",
+        "Contenedores: docker ps -a --filter name=gymhub_"
+      ],
+      "solucion": [
+        "Si etcd está caído: docker start gymhub_etcd_prod y esperar 30 s.",
+        "Si el cluster está en pausa: docker exec gymhub_pg_1_prod patronictl -c /etc/patroni/patroni.yml resume",
+        "Si todos los nodos están caídos: docker start gymhub_pg_1_prod gymhub_pg_2_prod gymhub_pg_3_prod",
+        "Último recurso (puede perder las transacciones no replicadas): patronictl failover --candidate pg-N --force"
+      ],
+      "verificacion": [
+        "patronictl list muestra un Leader.",
+        "https://gymhub-servidor.tailec3350.ts.net/api/health responde 200."
+      ],
+      "escalar": "Inmediato: avisar al equipo completo. Es una caída de servicio.",
+      "consultas": ["lider", "nodos_caidos", "nodos_vivos", "replicas", "api"]
+    },
+    {
+      "codigo": "GH-DB-003",
+      "alerta": "GymHubFailoverOcurrido",
+      "componente": "Base de datos (cluster Patroni)",
+      "severidad": "info",
+      "titulo": "Cambió el líder del cluster PostgreSQL (failover o switchover)",
+      "que_significa": "Patroni promovió otra réplica a líder en los últimos 10 minutos: el timeline subió. Es la consecuencia esperada de que se caiga el maestro (GH-DB-001) o de un switchover manual.",
+      "impacto": "Ninguno si el nuevo líder está sano: HAProxy ya redirigió las conexiones. Pudo haber unos segundos de errores de escritura durante el cambio.",
+      "causas": [
+        "Se cayó o se detuvo el nodo que era líder.",
+        "Switchover manual (patronictl switchover) por mantenimiento.",
+        "El líder perdió la conexión con etcd más tiempo que el ttl (20 s)."
+      ],
+      "diagnostico": [
+        "Quién es el líder ahora y el timeline: docker exec gymhub_pg_1_prod patronictl -c /etc/patroni/patroni.yml list",
+        "Historial de cambios de líder: docker exec gymhub_pg_1_prod patronictl -c /etc/patroni/patroni.yml history",
+        "Ver si el líder anterior sigue caído: docker ps -a --filter name=gymhub_pg_"
+      ],
+      "solucion": [
+        "Levantar el nodo anterior si está caído (docker start gymhub_pg_N_prod): vuelve como réplica.",
+        "No hace falta devolverle el liderazgo. Si se quiere: patronictl switchover --leader <actual> --candidate <otro>."
+      ],
+      "verificacion": [
+        "Un solo Leader y las réplicas en streaming con Lag 0.",
+        "La app responde en /api/health."
+      ],
+      "escalar": "Solo informativo. Escalar si el failover se repite varias veces en una hora.",
+      "consultas": ["lider", "timeline", "nodos_caidos", "replicas", "api"]
+    },
+    {
+      "codigo": "GH-DB-004",
+      "alerta": "GymHubDosLideres",
+      "componente": "Base de datos (cluster Patroni)",
+      "severidad": "critical",
+      "titulo": "Dos líderes en el cluster (split-brain)",
+      "que_significa": "Dos nodos se reportan como primario al mismo tiempo. Las escrituras pueden quedar repartidas entre dos bases distintas.",
+      "impacto": "Riesgo de pérdida o inconsistencia de datos.",
+      "causas": [
+        "Partición de red entre los nodos y etcd.",
+        "Un nodo arrancado a mano fuera de Patroni (pg_ctl promote)."
+      ],
+      "diagnostico": [
+        "docker exec gymhub_pg_1_prod patronictl -c /etc/patroni/patroni.yml list",
+        "Revisar en HAProxy (http://100.65.22.99:7000) a cuál de los dos manda las escrituras.",
+        "docker exec gymhub_etcd_prod etcdctl endpoint health"
+      ],
+      "solucion": [
+        "Dejar como líder al que tiene HAProxy y detener el otro: docker stop gymhub_pg_N_prod",
+        "Reinicializar el nodo detenido como réplica: docker start gymhub_pg_N_prod y, si no se sincroniza, patronictl reinit gymhub-prod pg-N",
+        "Comparar los datos escritos durante el incidente y restaurar desde backup si hace falta (database/backup/restore.sh)."
+      ],
+      "verificacion": ["patronictl list muestra un único Leader."],
+      "escalar": "Inmediato.",
+      "consultas": ["lider", "nodos_vivos", "timeline"]
+    },
+    {
+      "codigo": "GH-DB-005",
+      "alerta": "GymHubReplicasInsuficientes",
+      "componente": "Base de datos (cluster Patroni)",
+      "severidad": "warning",
+      "titulo": "Menos de 2 réplicas replicando",
+      "que_significa": "El cluster debería tener 2 réplicas en streaming y tiene menos. Suele aparecer 5 minutos después de que se cae un nodo (GH-DB-001), o mientras una réplica se resincroniza.",
+      "impacto": "Menos redundancia: si ahora se cae el líder, hay menos candidatos para reemplazarlo.",
+      "causas": [
+        "Un nodo caído (ver GH-DB-001).",
+        "Una réplica arrancando o resincronizándose después de un failover.",
+        "Una réplica sin poder conectarse al líder (replicación cortada)."
+      ],
+      "diagnostico": [
+        "docker exec gymhub_pg_1_prod patronictl -c /etc/patroni/patroni.yml list (estado de cada réplica: streaming, starting, stopped).",
+        "docker ps -a --filter name=gymhub_pg_",
+        "docker logs --tail 100 gymhub_pg_N_prod de la réplica que no está en streaming."
+      ],
+      "solucion": [
+        "Levantar el nodo caído: docker start gymhub_pg_N_prod",
+        "Si la réplica no vuelve a streaming: patronictl reinit gymhub-prod pg-N"
+      ],
+      "verificacion": ["patronictl list: 2 réplicas en streaming con Lag 0."],
+      "escalar": "Si sigue así más de 30 minutos.",
+      "consultas": ["replicas", "nodos_caidos", "lider", "lag"]
+    },
+    {
+      "codigo": "GH-DB-006",
+      "alerta": "GymHubReplicaLagAlto",
+      "componente": "Base de datos (cluster Patroni)",
+      "severidad": "warning",
+      "titulo": "Una réplica está atrasada más de 16 MB de WAL",
+      "que_significa": "La réplica no alcanza a aplicar los cambios del líder. Con más de 1 MB de atraso Patroni no la elige como líder en un failover.",
+      "impacto": "Las lecturas por el puerto 5433 pueden devolver datos viejos; menos candidatos para un failover.",
+      "causas": [
+        "Carga de escritura muy alta (por ejemplo, la carga del dataset de 6 millones).",
+        "CPU o disco saturados en la VM de Docker.",
+        "Consultas largas en la réplica que frenan la aplicación del WAL."
+      ],
+      "diagnostico": [
+        "patronictl list (columnas Lag).",
+        "CPU y disco en Grafana (http://100.65.22.99:3001) o docker stats."
+      ],
+      "solucion": [
+        "Esperar a que termine la carga pesada; el atraso baja solo.",
+        "Si no baja: reiniciar la réplica (docker restart gymhub_pg_N_prod) o reinicializarla (patronictl reinit)."
+      ],
+      "verificacion": ["Lag 0 en patronictl list."],
+      "escalar": "Si el atraso crece durante más de 30 minutos.",
+      "consultas": ["lag", "replicas", "cpu", "disco"]
+    },
+    {
+      "codigo": "GH-DB-007",
+      "alerta": "GymHubPostgresPrimaryUnavailable",
+      "componente": "Base de datos",
+      "severidad": "critical",
+      "titulo": "PostgreSQL primario no disponible (postgres-exporter)",
+      "que_significa": "postgres-exporter no puede conectarse a la base por HAProxy (db:5432) desde hace 1 minuto.",
+      "impacto": "Probable caída de escrituras de la app.",
+      "causas": [
+        "Cluster sin líder (GH-DB-002).",
+        "HAProxy caído.",
+        "Credenciales del exporter cambiadas."
+      ],
+      "diagnostico": [
+        "patronictl list",
+        "docker ps --filter name=gymhub_haproxy_prod y http://100.65.22.99:7000",
+        "docker logs --tail 50 gymhub-postgres-exporter-scrum66"
+      ],
+      "solucion": [
+        "Resolver primero GH-DB-002 si no hay líder.",
+        "Si HAProxy está caído: docker start gymhub_haproxy_prod"
+      ],
+      "verificacion": ["pg_up = 1 en Prometheus y /api/health responde 200."],
+      "escalar": "Inmediato si la app no responde.",
+      "consultas": ["pg_up", "lider", "api"]
+    },
+    {
+      "codigo": "GH-DB-008",
+      "alerta": "GymHubPostgresConnectionsHigh",
+      "componente": "Base de datos",
+      "severidad": "warning",
+      "titulo": "Muchas conexiones simultáneas a PostgreSQL",
+      "que_significa": "Más de 80 conexiones a la base gymhub durante 5 minutos.",
+      "impacto": "Si se llega a max_connections, las conexiones nuevas fallan.",
+      "causas": ["Pico de tráfico.", "Fuga de conexiones en el backend.", "Consultas lentas que dejan conexiones ocupadas."],
+      "diagnostico": [
+        "Ver quién está conectado (pgAdmin en 100.65.22.99:5436): SELECT state, count(*) FROM pg_stat_activity GROUP BY 1;",
+        "docker logs --tail 100 gymhub_backend_prod"
+      ],
+      "solucion": ["Cortar consultas colgadas (pg_terminate_backend).", "Reiniciar el backend si pierde conexiones: docker restart gymhub_backend_prod"],
+      "verificacion": ["Conexiones por debajo de 80."],
+      "escalar": "Si se repite a diario.",
+      "consultas": ["conexiones", "api"]
+    },
+    {
+      "codigo": "GH-APP-001",
+      "alerta": "GymHubBackendUnavailable",
+      "componente": "Backend (API)",
+      "severidad": "critical",
+      "titulo": "La API de GymHub no responde",
+      "que_significa": "Blackbox no obtiene HTTP 2xx de http://backend:3000/api/health durante 1 minuto.",
+      "impacto": "La app no funciona (login, datos).",
+      "causas": ["Contenedor del backend caído.", "La base no responde (ver GH-DB-002).", "Error al arrancar después de un despliegue."],
+      "diagnostico": ["docker ps -a --filter name=gymhub_backend_prod", "docker logs --tail 100 gymhub_backend_prod", "patronictl list"],
+      "solucion": ["docker start gymhub_backend_prod (o docker restart).", "Si fue un despliegue: volver a la versión anterior (scripts/deploy.sh con el SHA anterior)."],
+      "verificacion": ["/api/health responde 200."],
+      "escalar": "Inmediato.",
+      "consultas": ["api", "front", "lider"]
+    },
+    {
+      "codigo": "GH-APP-002",
+      "alerta": "GymHubFrontendUnavailable",
+      "componente": "Frontend (Nginx)",
+      "severidad": "critical",
+      "titulo": "El frontend de GymHub no responde",
+      "que_significa": "Blackbox no obtiene HTTP 2xx a través del proxy Nginx durante 1 minuto.",
+      "impacto": "La página no carga.",
+      "causas": ["Contenedor del frontend caído.", "El backend no responde y Nginx devuelve 502."],
+      "diagnostico": ["docker ps -a --filter name=gymhub_frontend_prod", "docker logs --tail 100 gymhub_frontend_prod"],
+      "solucion": ["docker start gymhub_frontend_prod", "Si el backend también está caído, ver GH-APP-001."],
+      "verificacion": ["La URL pública carga."],
+      "escalar": "Inmediato.",
+      "consultas": ["front", "api"]
+    },
+    {
+      "codigo": "GH-MON-001",
+      "alerta": "GymHubExporterUnavailable",
+      "componente": "Monitoreo",
+      "severidad": "warning",
+      "titulo": "Un exporter de monitoreo está caído",
+      "que_significa": "Prometheus no puede leer las métricas de un exporter.",
+      "impacto": "Se pierde visibilidad (y alertas) de ese componente.",
+      "causas": ["Contenedor del exporter detenido.", "Cambio de red de Docker."],
+      "diagnostico": ["docker ps -a --filter name=scrum66", "http://100.65.22.99:9091/targets"],
+      "solucion": ["bash scripts/infra.sh levantar"],
+      "verificacion": ["Todos los targets en UP."],
+      "escalar": "Si no vuelve en 30 minutos.",
+      "consultas": ["exporters"]
+    },
+    {
+      "codigo": "GH-INF-001",
+      "alerta": "GymHubDockerCpuHigh",
+      "componente": "Servidor (VM de Docker)",
+      "severidad": "warning",
+      "titulo": "CPU alta en la VM de Docker",
+      "que_significa": "CPU por encima del 85 % durante 10 minutos.",
+      "impacto": "La app responde más lento.",
+      "causas": ["Carga masiva de datos.", "Consultas pesadas sin índices.", "Un contenedor en bucle."],
+      "diagnostico": ["docker stats --no-stream", "Grafana: dashboard de contenedores."],
+      "solucion": ["Identificar el contenedor y reiniciarlo o esperar a que termine la tarea pesada."],
+      "verificacion": ["CPU por debajo del 85 %."],
+      "escalar": "Si dura más de 1 hora.",
+      "consultas": ["cpu", "memoria"]
+    },
+    {
+      "codigo": "GH-INF-002",
+      "alerta": "GymHubDockerMemoryHigh",
+      "componente": "Servidor (VM de Docker)",
+      "severidad": "warning",
+      "titulo": "Memoria alta en la VM de Docker",
+      "que_significa": "Memoria usada por encima del 90 % durante 10 minutos.",
+      "impacto": "Riesgo de que el sistema mate contenedores (OOM).",
+      "causas": ["Demasiados contenedores levantados (otros proyectos).", "Fuga de memoria."],
+      "diagnostico": ["docker stats --no-stream", "docker ps (ver contenedores de otros proyectos)."],
+      "solucion": ["Detener contenedores que no son de GymHub.", "Reiniciar el contenedor que más consume."],
+      "verificacion": ["Memoria por debajo del 90 %."],
+      "escalar": "Si un contenedor de producción se reinicia por OOM.",
+      "consultas": ["memoria", "cpu"]
+    },
+    {
+      "codigo": "GH-INF-003",
+      "alerta": "GymHubDockerDiskHigh",
+      "componente": "Servidor (VM de Docker)",
+      "severidad": "warning",
+      "titulo": "Disco de la VM de Docker casi lleno",
+      "que_significa": "Más del 90 % del disco usado durante 10 minutos.",
+      "impacto": "Si se llena, PostgreSQL deja de escribir.",
+      "causas": ["Backups acumulados.", "Imágenes y volúmenes viejos.", "WAL acumulado por una réplica caída."],
+      "diagnostico": ["docker system df", "Revisar el volumen de backups."],
+      "solucion": ["docker image prune y borrar volúmenes que no se usan (por ejemplo gymhub_prod_db_data_pre_patroni).", "Levantar la réplica caída para liberar WAL."],
+      "verificacion": ["Disco por debajo del 90 %."],
+      "escalar": "Inmediato si supera el 95 %.",
+      "consultas": ["disco"]
+    },
+    {
+      "codigo": "GH-INF-004",
+      "alerta": "GymHubReiniciosObservadosCadvisor",
+      "componente": "Contenedores",
+      "severidad": "warning",
+      "titulo": "Contenedores reiniciándose con frecuencia",
+      "que_significa": "cAdvisor vio más de 2 inicios de contenedores en 10 minutos.",
+      "impacto": "Posible contenedor en bucle de reinicio.",
+      "causas": ["Un contenedor que falla al arrancar y Docker lo reinicia.", "Despliegue o reinicio del servidor."],
+      "diagnostico": ["docker ps -a (columna STATUS: Restarting).", "docker logs del contenedor afectado."],
+      "solucion": ["Corregir la causa del error de arranque."],
+      "verificacion": ["Sin reinicios en 10 minutos."],
+      "escalar": "Si un contenedor de producción no logra arrancar.",
+      "consultas": ["reinicios"]
+    },
+    {
+      "codigo": "GH-PUB-001",
+      "alerta": "GymHubUrlPublicaCaida",
+      "componente": "Publicación",
+      "severidad": "critical",
+      "titulo": "La URL pública de GymHub no responde",
+      "que_significa": "La sonda externa falla desde hace 2 minutos (HTTPS, certificado o /api/health).",
+      "impacto": "Los usuarios de Internet no pueden entrar.",
+      "causas": ["Túnel de Cloudflare caído.", "Tailscale Funnel desactivado.", "Frontend o backend caídos."],
+      "diagnostico": ["bash scripts/vigilar-tunel.sh --forzar", "tailscale funnel status", "docker ps --filter name=gymhub_"],
+      "solucion": ["Relanzar el túnel o el Funnel (bash scripts/tailscale-serve.sh).", "Ver GH-APP-001/002 si la app local tampoco responde."],
+      "verificacion": ["https://gymhub-servidor.tailec3350.ts.net carga."],
+      "escalar": "Inmediato.",
+      "consultas": ["url_publica", "api", "front"]
+    },
+    {
+      "codigo": "GH-PUB-002",
+      "alerta": "GymHubUrlPublicaLenta",
+      "componente": "Publicación",
+      "severidad": "warning",
+      "titulo": "La URL pública responde lento",
+      "que_significa": "La sonda tarda más de 3 s durante 5 minutos.",
+      "impacto": "Mala experiencia de usuario.",
+      "causas": ["Conexión a Internet de la PC servidor lenta.", "Backend lento (CPU o consultas pesadas)."],
+      "diagnostico": ["Comparar con la latencia local de /api/health.", "docker stats --no-stream"],
+      "solucion": ["Si la latencia local es buena, el problema es la red o el túnel."],
+      "verificacion": ["Latencia por debajo de 3 s."],
+      "escalar": "Si dura más de 1 hora.",
+      "consultas": ["latencia_publica", "cpu"]
+    },
+    {
+      "codigo": "GH-PUB-003",
+      "alerta": "GymHubCertificadoPorVencer",
+      "componente": "Publicación",
+      "severidad": "warning",
+      "titulo": "El certificado HTTPS público vence en menos de 7 días",
+      "que_significa": "El certificado que presenta la URL pública está por vencer.",
+      "impacto": "Si vence, los navegadores bloquean la página.",
+      "causas": ["Fallo en la renovación automática."],
+      "diagnostico": ["Ver el certificado en el navegador."],
+      "solucion": ["Relanzar el Funnel o el túnel para forzar la renovación."],
+      "verificacion": ["Más de 30 días de validez."],
+      "escalar": "Si faltan menos de 2 días.",
+      "consultas": ["cert_dias"]
+    },
+    {
+      "codigo": "GH-PUB-004",
+      "alerta": "GymHubTunelCaido",
+      "componente": "Publicación",
+      "severidad": "critical",
+      "titulo": "El contenedor de cloudflared no responde",
+      "que_significa": "Prometheus no puede leer las métricas del túnel de respaldo.",
+      "impacto": "Se cae la URL de respaldo de Cloudflare (la de Funnel sigue).",
+      "causas": ["Contenedor detenido.", "Túnel rápido vencido ('Tunnel not found')."],
+      "diagnostico": ["docker logs --tail 50 gymhub_cloudflared_rapido"],
+      "solucion": ["bash scripts/vigilar-tunel.sh --forzar"],
+      "verificacion": ["up{job=\"cloudflared\"} = 1"],
+      "escalar": "Si Funnel también está caído.",
+      "consultas": ["tunel_up", "tunel_conexiones"]
+    },
+    {
+      "codigo": "GH-PUB-005",
+      "alerta": "GymHubTunelSinConexiones",
+      "componente": "Publicación",
+      "severidad": "critical",
+      "titulo": "El túnel no tiene conexiones con Cloudflare",
+      "que_significa": "cloudflared está vivo pero sin conexiones al edge.",
+      "impacto": "La URL de respaldo no funciona.",
+      "causas": ["Corte de Internet de la PC servidor.", "Problema de Cloudflare."],
+      "diagnostico": ["docker logs --tail 50 gymhub_cloudflared_rapido", "Probar Internet en la PC."],
+      "solucion": ["bash scripts/vigilar-tunel.sh --forzar"],
+      "verificacion": ["Conexiones del túnel >= 1."],
+      "escalar": "Si dura más de 15 minutos.",
+      "consultas": ["tunel_conexiones", "tunel_up"]
+    },
+    {
+      "codigo": "GH-PUB-006",
+      "alerta": "GymHubTunelErroresOrigen",
+      "componente": "Publicación",
+      "severidad": "warning",
+      "titulo": "El túnel registra errores al llegar al frontend",
+      "que_significa": "Más de 5 errores hacia Nginx en 5 minutos.",
+      "impacto": "Algunos usuarios ven errores 502.",
+      "causas": ["Frontend caído o reiniciándose."],
+      "diagnostico": ["docker ps --filter name=gymhub_frontend_prod"],
+      "solucion": ["Ver GH-APP-002."],
+      "verificacion": ["Sin errores nuevos en 5 minutos."],
+      "escalar": "Si persiste.",
+      "consultas": ["tunel_errores", "front"]
+    },
+    {
+      "codigo": "GH-BKP-001",
+      "patron": "verificación del backup",
+      "componente": "Backups",
+      "severidad": "warning",
+      "titulo": "Falló la verificación del backup diario",
+      "que_significa": "El flujo 02 de n8n encontró el último backup fallido, vacío o con más de 26 horas.",
+      "impacto": "Si hay que restaurar, se perderían más datos de lo previsto.",
+      "causas": ["El contenedor de backup no pudo conectarse a la base.", "Disco lleno.", "Contenedor de backup detenido."],
+      "diagnostico": ["docker logs --tail 50 gymhub_backup_prod", "Revisar /backups/backup.log y latest_status.json."],
+      "solucion": ["Forzar un backup: docker exec gymhub_backup_prod /usr/local/bin/backup.sh"],
+      "verificacion": ["latest_status.json con status success y fecha de hoy."],
+      "escalar": "Si falla dos días seguidos.",
+      "consultas": ["lider", "disco"]
+    },
+    {
+      "codigo": "GH-SEG-001",
+      "patron": "Rate limit|login fallido|Login fallido|login de administrador|Login de administrador",
+      "componente": "Seguridad",
+      "severidad": "warning",
+      "titulo": "Evento de seguridad del backend",
+      "que_significa": "El backend reportó intentos de login fallidos repetidos, rate limit activado o un login de administrador (flujo 04 de n8n).",
+      "impacto": "Posible ataque de fuerza bruta.",
+      "causas": ["Intento de fuerza bruta.", "Usuario que olvidó la contraseña.", "Prueba del equipo."],
+      "diagnostico": ["Ver la IP y el tipo en la incidencia de Mantis.", "docker logs gymhub_backend_prod | grep -i login"],
+      "solucion": ["Si la IP es externa y repetida, bloquearla.", "Avisar al usuario afectado."],
+      "verificacion": ["Sin eventos nuevos de esa IP."],
+      "escalar": "Si hay login de administrador no reconocido.",
+      "consultas": ["api"]
+    },
+    {
+      "codigo": "GH-REN-001",
+      "patron": "Informe de rendimiento CRÍTICO",
+      "componente": "Rendimiento",
+      "severidad": "warning",
+      "titulo": "El informe de rendimiento salió crítico",
+      "que_significa": "El analizador Python del flujo 03 encontró métricas por encima del umbral al final de la ventana de 24 h.",
+      "impacto": "Depende de la métrica (ver el informe en Nextcloud, carpeta Informes-IA).",
+      "causas": ["Ver los hallazgos del informe."],
+      "diagnostico": ["Abrir el informe en Nextcloud (Informes-IA).", "Comparar con Grafana."],
+      "solucion": ["Según la métrica: ver la entrada del manual que corresponde."],
+      "verificacion": ["El próximo informe sale OK."],
+      "escalar": "Si sale crítico dos días seguidos.",
+      "consultas": ["cpu", "memoria", "replicas", "api"]
+    }
+  ]
+}
