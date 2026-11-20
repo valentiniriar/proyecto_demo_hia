@@ -1,0 +1,34 @@
+Timing is on.
+DO
+Time: 92.370 ms
+==> idx_rutinas_usuario (mis rutinas, rutinas por socio)
+CREATE INDEX
+Time: 7584.232 ms (00:07.584)
+==> idx_suscripciones_usuario (suscripciones de un socio)
+CREATE INDEX
+Time: 6277.641 ms (00:06.278)
+==> idx_tarifas_suscripcion (mis tarifas: JOIN tarifas -> suscripciones)
+CREATE INDEX
+Time: 4615.072 ms (00:04.615)
+==> uq_pagos_transaccion (pago ya registrado)
+CREATE INDEX
+Time: 6110.134 ms (00:06.110)
+==> ANALYZE
+ANALYZE
+Time: 1709.334 ms (00:01.709)
+ANALYZE
+Time: 1651.511 ms (00:01.652)
+ANALYZE
+Time: 1713.507 ms (00:01.714)
+ANALYZE
+Time: 644.020 ms
+==> Índices creados
+          indice           |     tabla     | valido | tamanio 
+---------------------------+---------------+--------+---------
+ idx_rutinas_usuario       | rutinas       | t      | 112 MB
+ idx_suscripciones_usuario | suscripciones | t      | 112 MB
+ idx_tarifas_suscripcion   | tarifas       | t      | 118 MB
+ uq_pagos_transaccion      | pagos         | t      | 181 MB
+(4 rows)
+
+Time: 5.020 ms
