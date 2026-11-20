@@ -25,10 +25,11 @@ const CRED = {
   mantis: { httpHeaderAuth: { id: 'gymhubMantisBot', name: 'Mantis - token n8n-bot' } },
   smtp: { smtp: { id: 'gymhubMailpit01', name: 'SMTP Mailpit (interno)' } },
   nextcloud: { httpBasicAuth: { id: 'gymhubNextcloud1', name: 'Nextcloud - n8n-bot (app password)' } },
+  diagnostico: { httpBasicAuth: { id: 'gymhubDiagnost01', name: 'Diagnóstico - usuario y clave de la página' } },
 };
 const ID = {
   errores: 'GymHubErrores001', alertas: 'GymHubAlertas001', backups: 'GymHubBackups001',
-  informe: 'GymHubInforme001', seguridad: 'GymHubSeguridad1',
+  informe: 'GymHubInforme001', seguridad: 'GymHubSeguridad1', diagnostico: 'GymHubDiagnost1',
 };
 const SETTINGS = { executionOrder: 'v1', saveDataSuccessExecution: 'all', saveDataErrorExecution: 'all',
   saveManualExecutions: true, errorWorkflow: ID.errores };
@@ -98,12 +99,23 @@ const mantisPost = (name, jsonBody) => nodo(name, 'httpRequest', 4.2, {
   nota.credentials = CRED.mantis;
   nota.parameters.options = { timeout: 15000 };
   const resuelta = by('Marcar alerta resuelta');
-  const m = mail('Avisar al responsable', '=[GymHub] Nueva incidencia #{{$json.issueId}} por alerta de monitoreo',
-    by('Send an Email').parameters.html);
-  const nodes = [wh, val, iff, crear, guardar, nota, resuelta, m].map((x, i) => ({ ...x, position: [i * 220, 300] }));
+  // Diagnóstico automático con el manual de Nextcloud (flujo 05 como subflujo). Si falla, el aviso sale igual.
+  const diag = nodo('Diagnosticar con el manual (flujo 05)', 'executeWorkflow', 1.2, {
+    source: 'database', workflowId: { __rl: true, value: ID.diagnostico, mode: 'id' },
+    options: { waitForSubWorkflow: true },
+  }, { onError: 'continueRegularOutput', alwaysOutputData: true });
+  const G = '$("Guardar ID de incidencia").item.json';
+  const m = mail('Avisar al responsable', `=[GymHub] Nueva incidencia #{{${G}.issueId}} por alerta de monitoreo{{ $json.codigo ? " · " + $json.codigo : "" }}`,
+    '=<h2>Alerta de monitoreo - GymHub</h2><p>Se creó una nueva incidencia en Mantis.</p>' +
+    `<p><strong>ID:</strong> #{{${G}.issueId}} · <a href="{{${G}.link}}">Ver incidencia en Mantis</a></p>` +
+    '{{ $json.codigo ? "<h3>Diagnóstico (" + $json.codigo + " · " + $json.titulo + ")</h3><p>" + $json.conclusion_html + "</p>" +' +
+    ` "<p>Diagnóstico completo en Nextcloud: <a href=\\"${WEB}:8082/apps/files/?dir=/Diagnosticos\\">Diagnosticos/" + $json.archivo + "</a></p>"` +
+    ' : "<p>No se pudo generar el diagnóstico automático: pedirlo con el número de incidencia en el flujo 05.</p>" }}' +
+    '<p>Notificación automática generada por n8n.</p>');
+  const nodes = [wh, val, iff, crear, guardar, diag, nota, resuelta, m].map((x, i) => ({ ...x, position: [i * 220, 300] }));
   escribir('01-alertas-a-mantis.json', flujo(ID.alertas, '01 · Alertas de Prometheus → incidencia en Mantis', nodes, conectar([
     [wh.name, val.name], [val.name, iff.name], [iff.name, crear.name, 0], [iff.name, nota.name, 1],
-    [crear.name, guardar.name], [nota.name, resuelta.name], [guardar.name, m.name],
+    [crear.name, guardar.name], [nota.name, resuelta.name], [guardar.name, diag.name], [diag.name, m.name],
   ])));
 }
 
@@ -310,6 +322,269 @@ const mantisPost = (name, jsonBody) => nodo(name, 'httpRequest', 4.2, {
     [iffDup.name, dup.name, 0], [iffDup.name, inc.name, 1]]));
   // El body de "Crear incidencia" usa $json.incidencia y $json.evento: "¿Ya hay una abierta?" los conserva.
   escribir('04-eventos-seguridad.json', flujo(ID.seguridad, '04 · Eventos de seguridad del backend → Mantis', nodes, conn));
+}
+
+// ───────────── 05 · Diagnóstico con el manual de errores (Nextcloud) a partir del ID del error ─────────────
+// Se le pasa el código del manual (GH-DB-001) o el número de incidencia de Mantis. Lee el manual desde
+// Nextcloud (Manual-Operaciones/manual-errores.json, n8n solo tiene lectura), consulta el estado ACTUAL en
+// Prometheus, arma el diagnóstico, lo guarda en Nextcloud (Diagnosticos/) y lo agrega como nota en Mantis.
+//   - Desde el navegador (tailnet): http://100.65.22.99:5679/webhook/gymhub-diagnostico?id=41  (usuario y clave)
+//   - Automático: el flujo 01 lo llama como subflujo con cada incidencia nueva.
+// Los nodos Code se escriben como funciones normales (se valida su sintaxis acá) y se guarda solo el cuerpo.
+const cuerpo = (f) => { const s = f.toString(); return s.slice(s.indexOf('{') + 1, s.lastIndexOf('}')).trim() + '\n'; };
+/* eslint-disable no-undef */
+const PAGINA_CSS = 'body{font-family:system-ui,Segoe UI,sans-serif;max-width:860px;margin:24px auto;padding:0 16px;' +
+  'color:#1d2330;background:#f6f7f9;line-height:1.5}h1{font-size:1.5rem}h2{font-size:1.15rem;margin-top:1.6em}' +
+  '.caja{background:#fff;border:1px solid #dde1e7;border-radius:10px;padding:16px 20px;margin:12px 0}' +
+  '.estado{font-weight:700;padding:10px 14px;border-radius:8px}.ok{background:#e3f6e8;color:#13612e}' +
+  '.deg{background:#fff4dc;color:#7a4b00}.mal{background:#fde4e4;color:#8a1414}.gris{background:#eceff3}' +
+  'code{background:#eef1f5;padding:1px 5px;border-radius:4px;font-size:.92em;word-break:break-word}' +
+  'table{border-collapse:collapse;width:100%}td{border-bottom:1px solid #eceff3;padding:6px 4px;vertical-align:top}' +
+  'input{font-size:1rem;padding:8px 10px;border:1px solid #c5cbd3;border-radius:6px;width:220px}' +
+  'button{font-size:1rem;padding:8px 16px;border:0;border-radius:6px;background:#2357d9;color:#fff;cursor:pointer}' +
+  'small{color:#5b6472}';
+{
+  n = 0;
+  const wh = nodo('Página de diagnóstico (GET ?id=)', 'webhook', 2, {
+    httpMethod: 'GET', path: 'gymhub-diagnostico', authentication: 'basicAuth', responseMode: 'responseNode', options: {},
+  }, { webhookId: 'gymhub-diagnostico', credentials: CRED.diagnostico });
+  const sub = nodo('Llamado desde el flujo 01', 'executeWorkflowTrigger', 1.1, { inputSource: 'passthrough' });
+  const norm = nodo('Normalizar ID', 'code', 2, { jsCode: cuerpo(function () {
+    // Validación de la entrada: número de incidencia de Mantis o código del manual. Nada más.
+    const j = $input.first().json;
+    const desdeWeb = Boolean(j.query || j.headers);
+    const crudo = String((j.query && j.query.id) ?? j.issueId ?? j.id ?? '').trim().replace(/^#/, '').slice(0, 40);
+    let tipo;
+    if (!crudo) tipo = 'formulario';
+    else if (/^\d{1,7}$/.test(crudo)) tipo = 'mantis';
+    else if (/^GH-[A-Z]{2,4}-\d{3}$/i.test(crudo)) tipo = 'codigo';
+    else tipo = 'invalido';
+    if (!desdeWeb && tipo !== 'mantis' && tipo !== 'codigo') throw new Error('Diagnóstico: el flujo 01 no pasó un ID de incidencia válido');
+    return [{ json: { id: tipo === 'codigo' ? crudo.toUpperCase() : crudo, tipo, origen: desdeWeb ? 'web' : 'flujo01' } }];
+  }) });
+  const iffForm = nodo('¿Mostrar el formulario?', 'if', 1, { conditions: { boolean: [
+    { value1: '={{ ["formulario", "invalido"].includes($json.tipo) }}', value2: true }] } });
+  const form = nodo('Armar formulario', 'code', 2, { jsCode: `const CSS = ${JSON.stringify(PAGINA_CSS)};\n` + cuerpo(function () {
+    const j = $input.first().json;
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const error = j.tipo === 'invalido'
+      ? `<p class="estado mal">"${esc(j.id)}" no es un ID válido. Usá el número de incidencia de Mantis (por ejemplo 41) o un código del manual (por ejemplo GH-DB-001).</p>` : '';
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<title>Diagnóstico GymHub</title><style>${CSS}</style></head><body><h1>Diagnóstico de errores · GymHub</h1>${error}` +
+      '<div class="caja"><form method="get"><p>ID del error: número de incidencia de Mantis o código del manual.</p>' +
+      '<input name="id" placeholder="41 o GH-DB-001" autofocus required> <button>Diagnosticar</button></form></div>' +
+      '<p><small>n8n lee el manual de errores desde Nextcloud (Manual-Operaciones), consulta el estado actual en Prometheus ' +
+      'y guarda el diagnóstico en Nextcloud (Diagnosticos).</small></p></body></html>';
+    return [{ json: { html } }];
+  }) });
+  const respForm = nodo('Responder formulario', 'respondToWebhook', 1.1, {
+    respondWith: 'text', responseBody: '={{ $json.html }}',
+    options: { responseCode: 200, responseHeaders: { entries: [{ name: 'Content-Type', value: 'text/html; charset=utf-8' }] } },
+  });
+  const leerManual = nodo('Leer manual (Nextcloud)', 'httpRequest', 4.2, {
+    url: 'http://nextcloud/remote.php/dav/files/n8n-bot/Manual-Operaciones/manual-errores.json',
+    authentication: 'genericCredentialType', genericAuthType: 'httpBasicAuth',
+    options: { timeout: 15000, response: { response: { responseFormat: 'json' } } },
+  }, { credentials: CRED.nextcloud });
+  const iffMantis = nodo('¿Es una incidencia de Mantis?', 'if', 1, { conditions: { boolean: [
+    { value1: '={{ $("Normalizar ID").first().json.tipo === "mantis" }}', value2: true }] } });
+  const leerInc = nodo('Leer incidencia en Mantis', 'httpRequest', 4.2, {
+    url: '=http://mantis/api/rest/issues/{{ $("Normalizar ID").first().json.id }}',
+    authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth', options: { timeout: 15000 },
+  }, { credentials: CRED.mantis, onError: 'continueRegularOutput', alwaysOutputData: true });
+  const buscar = nodo('Buscar el error en el manual', 'code', 2, { jsCode: cuerpo(function () {
+    const pedido = $('Normalizar ID').first().json;
+    let manual = $('Leer manual (Nextcloud)').first().json;
+    if (typeof manual.data === 'string') manual = JSON.parse(manual.data);
+    if (!manual || !Array.isArray(manual.errores) || !manual.consultas) throw new Error('El manual de Nextcloud no tiene el formato esperado (errores / consultas)');
+    let incidencia = null, alerta = null, instancia = null, aviso = null;
+    if (pedido.tipo === 'mantis') {
+      const r = $input.first().json;
+      incidencia = r && Array.isArray(r.issues) && r.issues[0] ? r.issues[0] : null;
+      if (!incidencia) aviso = `La incidencia #${pedido.id} no existe en Mantis o no se pudo leer.`;
+      else {
+        const m = /^\[Prometheus\]\s+(\S+)\s+-\s+(.*)$/.exec(incidencia.summary || '');
+        if (m) { alerta = m[1]; instancia = m[2]; }
+      }
+    }
+    let entrada = null;
+    if (pedido.tipo === 'codigo') entrada = manual.errores.find((e) => e.codigo === pedido.id) || null;
+    else if (alerta) entrada = manual.errores.find((e) => e.alerta === alerta) || null;
+    else if (incidencia) entrada = manual.errores.find((e) => e.patron && new RegExp(e.patron, 'i').test(incidencia.summary || '')) || null;
+    if (!entrada && !aviso) aviso = pedido.tipo === 'codigo' ? `El código ${pedido.id} no está en el manual.`
+      : `La incidencia #${pedido.id} no corresponde a ningún error del manual${alerta ? ` (alerta ${alerta})` : ''}.`;
+    const claves = entrada ? entrada.consultas : ['lider', 'api'];
+    const consultas = claves.filter((k) => manual.consultas[k]).map((k) => ({ clave: k, ...manual.consultas[k] }));
+    if (entrada && entrada.alerta) consultas.push({ clave: 'alerta_activa', nombre: `¿Sigue activa la alerta ${entrada.alerta}?`,
+      promql: `ALERTS{alertstate="firing",alertname="${entrada.alerta}"}`, tipo: 'lista' });
+    const contexto = { pedido, entrada, aviso, manual_version: manual.version, alerta, instancia,
+      incidencia: incidencia ? { id: incidencia.id, resumen: incidencia.summary, estado: incidencia.status && incidencia.status.name, creada: incidencia.created_at } : null,
+      codigos: manual.errores.map((e) => `${e.codigo} · ${e.titulo}`) };
+    return consultas.map((c, i) => ({ json: { ...c, contexto: i === 0 ? contexto : undefined } }));
+  }) });
+  const prom = nodo('Estado actual (Prometheus)', 'httpRequest', 4.2, {
+    url: 'http://prometheus:9090/api/v1/query', sendQuery: true,
+    queryParameters: { parameters: [{ name: 'query', value: '={{ $json.promql }}' }] }, options: { timeout: 15000 },
+  }, { onError: 'continueRegularOutput', alwaysOutputData: true });
+  const armar = nodo('Armar diagnóstico', 'code', 2, { jsCode: `const CSS = ${JSON.stringify(PAGINA_CSS)};\nconst WEB = ${JSON.stringify(WEB)};\n` + cuerpo(function () {
+    const items = $('Buscar el error en el manual').all().map((i) => i.json);
+    const resp = $input.all().map((i) => i.json);
+    const ctx = items[0].contexto;
+    const e = ctx.entrada;
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmt = (v, u) => {
+      if (v == null || Number.isNaN(v)) return '-';
+      if (u === 'ok') return v >= 1 ? 'OK' : 'FALLA';
+      if (u === 'bytes') return v < 1024 ? `${Math.round(v)} B` : v < 1048576 ? `${(v / 1024).toFixed(1)} KB` : `${(v / 1048576).toFixed(1)} MB`;
+      if (u === '%') return `${v.toFixed(1)} %`;
+      if (u === 's') return `${v.toFixed(2)} s`;
+      return Number.isInteger(v) ? String(v) : v.toFixed(2);
+    };
+    const quien = (m) => String(m.name || m.alertname || m.instance || m.job || 'total').replace(/:8008$/, '');
+    // 1. Estado actual, consulta por consulta.
+    const vivo = {};
+    const filas = items.map((c, i) => {
+      const r = resp[i] || {};
+      if (r.status !== 'success') { vivo[c.clave] = undefined; return [c.nombre, 'sin datos (Prometheus no respondió)']; }
+      const res = (r.data && r.data.result) || [];
+      if (c.tipo === 'valor') {
+        const v = res.length ? Number(res[0].value[1]) : null;
+        vivo[c.clave] = v;
+        return [c.nombre, v == null ? 'sin datos' : fmt(v, c.unidad)];
+      }
+      const lista = res.map((x) => ({ quien: quien(x.metric), valor: Number(x.value[1]) }));
+      vivo[c.clave] = lista;
+      return [c.nombre, lista.length ? lista.map((x) => (c.unidad ? `${x.quien}: ${fmt(x.valor, c.unidad)}` : x.quien)).join(', ') : 'ninguno'];
+    });
+    // 2. Conclusiones a partir del estado actual.
+    const conc = [];
+    const L = (k) => (Array.isArray(vivo[k]) ? vivo[k] : null);
+    const N = (k) => (typeof vivo[k] === 'number' ? vivo[k] : null);
+    if (L('lider')) {
+      if (L('lider').length === 1) conc.push(`El cluster tiene líder: ${L('lider')[0].quien} (acepta escrituras; HAProxy le manda el puerto 5432).`);
+      else if (L('lider').length === 0) conc.push('El cluster NO tiene líder en este momento: las escrituras fallan.');
+      else conc.push(`Hay ${L('lider').length} líderes (${L('lider').map((x) => x.quien).join(', ')}): posible split-brain.`);
+    }
+    if (L('nodos_caidos')) {
+      conc.push(L('nodos_caidos').length
+        ? `Nodos caídos: ${L('nodos_caidos').map((x) => x.quien).join(', ')}. Levantarlos con: ${L('nodos_caidos').map((x) => `docker start gymhub_${x.quien.replace('-', '_')}_prod`).join(' ; ')} (vuelven como réplica).`
+        : 'Todos los nodos de Patroni responden.');
+    }
+    if (N('replicas') != null) conc.push(N('replicas') >= 2 ? `Réplicas en streaming: ${N('replicas')} de 2 (redundancia completa).` : `Réplicas en streaming: ${N('replicas')} de 2 (redundancia reducida).`);
+    if (N('timeline') != null) conc.push(`Timeline actual: ${N('timeline')} (sube 1 con cada failover).`);
+    if (N('api') != null) conc.push(N('api') >= 1 ? 'La app responde (/api/health OK): los usuarios no están afectados.' : 'La app NO responde en /api/health: hay impacto para los usuarios.');
+    if (L('alerta_activa')) conc.push(L('alerta_activa').length ? `La alerta ${e.alerta} sigue activa.` : `La alerta ${e.alerta} ya no está activa (se resolvió).`);
+    let estado = 'SIN ENTRADA EN EL MANUAL', clase = 'gris';
+    if (e) {
+      const caido = N('api') === 0 || (L('lider') && L('lider').length !== 1) || N('pg_up') === 0 || N('front') === 0;
+      const pendiente = (L('nodos_caidos') && L('nodos_caidos').length) || (N('replicas') != null && N('replicas') < 2)
+        || (L('alerta_activa') && L('alerta_activa').length) || (L('exporters') && L('exporters').length);
+      if (caido) { estado = 'CRÍTICO: el servicio está afectado'; clase = 'mal'; }
+      else if (pendiente) { estado = 'DEGRADADO: el servicio funciona, falta volver a la normalidad'; clase = 'deg'; }
+      else { estado = 'RECUPERADO: todo normal'; clase = 'ok'; }
+    }
+    // 3. Documento.
+    const ahora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Argentina/Jujuy' }));
+    const p = (x) => String(x).padStart(2, '0');
+    const fecha = `${ahora.getFullYear()}-${p(ahora.getMonth() + 1)}-${p(ahora.getDate())} ${p(ahora.getHours())}:${p(ahora.getMinutes())}`;
+    const sello = fecha.replace(/[-: ]/g, '').replace(/^(\d{8})/, '$1-');
+    const inc = ctx.incidencia;
+    const archivo = `diagnostico-${e ? e.codigo : 'sin-codigo'}${inc ? `-inc${inc.id}` : ''}-${sello}.md`;
+    const lista = (xs) => (xs || []).map((x) => `- ${x}`).join('\n');
+    const md = [
+      `# Diagnóstico ${e ? `${e.codigo} · ${e.titulo}` : 'sin entrada en el manual'}`, '',
+      `- **Generado:** ${fecha} (hora de Argentina) por el flujo 05 de n8n.`,
+      `- **ID recibido:** ${ctx.pedido.id} (${ctx.pedido.tipo === 'mantis' ? 'incidencia de Mantis' : 'código del manual'}; pedido desde ${ctx.pedido.origen === 'web' ? 'la página de diagnóstico' : 'el flujo 01, automático'}).`,
+      inc ? `- **Incidencia:** [#${inc.id}](${WEB}:8990/view.php?id=${inc.id}) · ${inc.resumen} · estado ${inc.estado}.` : null,
+      `- **Manual usado:** Nextcloud › Manual-Operaciones/manual-errores.json (versión ${ctx.manual_version}).`,
+      `- **Estado general:** **${estado}**`,
+      ctx.aviso ? `\n> ${ctx.aviso}` : null, '',
+      '## Conclusión con el estado actual', '', lista(conc) || '- Sin datos.', '',
+      '## Estado actual (Prometheus)', '', '| Qué se consultó | Resultado |', '|---|---|',
+      ...filas.map(([a, b]) => `| ${a} | ${String(b).replace(/\|/g, '/')} |`),
+    ].filter((x) => x !== null);
+    if (e) {
+      md.push('', `## Qué significa (${e.componente}, severidad ${e.severidad})`, '', e.que_significa, '', `**Impacto:** ${e.impacto}`,
+        '', '## Causas probables', '', lista(e.causas), '', '## Pasos de diagnóstico', '', lista(e.diagnostico),
+        '', '## Solución', '', lista(e.solucion), '', '## Cómo verificar que quedó resuelto', '', lista(e.verificacion),
+        '', `**Escalar:** ${e.escalar}`);
+    } else {
+      md.push('', '## Códigos disponibles en el manual', '', lista(ctx.codigos));
+    }
+    const markdown = md.join('\n') + '\n';
+    const li = (xs) => `<ul>${(xs || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+      `<title>Diagnóstico ${esc(e ? e.codigo : '')}</title><style>${CSS}</style></head><body>` +
+      `<p><a href="?">← otro ID</a></p><h1>${esc(e ? `${e.codigo} · ${e.titulo}` : 'Sin entrada en el manual')}</h1>` +
+      `<p class="estado ${clase}">${esc(estado)}</p>${ctx.aviso ? `<p class="estado gris">${esc(ctx.aviso)}</p>` : ''}` +
+      (inc ? `<p>Incidencia <a href="${WEB}:8990/view.php?id=${inc.id}" target="_blank">#${inc.id}</a> · ${esc(inc.resumen)}</p>` : '') +
+      `<div class="caja"><h2>Conclusión con el estado actual</h2>${li(conc)}</div>` +
+      `<div class="caja"><h2>Estado actual (Prometheus)</h2><table>${filas.map(([a, b]) => `<tr><td>${esc(a)}</td><td><b>${esc(b)}</b></td></tr>`).join('')}</table></div>` +
+      (e ? `<div class="caja"><h2>Qué significa</h2><p>${esc(e.que_significa)}</p><p><b>Impacto:</b> ${esc(e.impacto)}</p>` +
+        `<h2>Causas probables</h2>${li(e.causas)}<h2>Pasos de diagnóstico</h2>${li(e.diagnostico)}` +
+        `<h2>Solución</h2>${li(e.solucion)}<h2>Verificación</h2>${li(e.verificacion)}<p><b>Escalar:</b> ${esc(e.escalar)}</p></div>`
+        : `<div class="caja"><h2>Códigos del manual</h2>${li(ctx.codigos)}</div>`) +
+      `<p><small>Guardado en Nextcloud: Diagnosticos/${esc(archivo)} · Manual: Manual-Operaciones/manual-errores.json (v${esc(ctx.manual_version)})</small></p></body></html>`;
+    const nota = `Diagnóstico automático (n8n, flujo 05) con el manual de errores de Nextcloud.\n` +
+      `Código: ${e ? `${e.codigo} · ${e.titulo}` : 'sin entrada en el manual'}\nEstado: ${estado}\n\n` +
+      `${conc.map((x) => `- ${x}`).join('\n')}\n\n` +
+      (e ? `Solución según el manual:\n${e.solucion.map((x) => `- ${x}`).join('\n')}\n\n` : '') +
+      `Diagnóstico completo en Nextcloud: Diagnosticos/${archivo}`;
+    return [{ json: { codigo: e ? e.codigo : null, titulo: e ? e.titulo : null, estado, conclusiones: conc,
+      conclusion_html: `<b>${esc(estado)}</b><br>${conc.map(esc).join('<br>')}`, archivo, markdown, html, nota,
+      issueId: inc ? inc.id : null, origen: ctx.pedido.origen } }];
+  }) });
+  const guardar = nodo('Guardar en Nextcloud (Diagnosticos)', 'httpRequest', 4.2, {
+    method: 'PUT', url: '=http://nextcloud/remote.php/dav/files/n8n-bot/Diagnosticos/{{ $json.archivo }}',
+    authentication: 'genericCredentialType', genericAuthType: 'httpBasicAuth', sendBody: true, contentType: 'raw',
+    rawContentType: 'text/markdown; charset=utf-8', body: '={{ $json.markdown }}', options: { timeout: 20000 },
+  }, { credentials: CRED.nextcloud });
+  const iffNota = nodo('¿Hay incidencia en Mantis?', 'if', 1, { conditions: { boolean: [
+    { value1: '={{ Boolean($("Armar diagnóstico").first().json.issueId) }}', value2: true }] } });
+  const nota = nodo('Agregar diagnóstico a la incidencia', 'httpRequest', 4.2, {
+    method: 'POST', url: '=http://mantis/api/rest/issues/{{ $("Armar diagnóstico").first().json.issueId }}/notes',
+    authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth', sendBody: true, specifyBody: 'json',
+    jsonBody: '={{ JSON.stringify({ text: $("Armar diagnóstico").first().json.nota, view_state: { name: "public" } }) }}',
+    options: { timeout: 15000 },
+  }, { credentials: CRED.mantis });
+  const resultado = nodo('Resultado', 'code', 2, { jsCode: cuerpo(function () {
+    const d = $('Armar diagnóstico').first().json;
+    return [{ json: { codigo: d.codigo, titulo: d.titulo, estado: d.estado, conclusion_html: d.conclusion_html,
+      archivo: d.archivo, issueId: d.issueId, origen: d.origen } }];
+  }) });
+  const iffWeb = nodo('¿Lo pidió la página?', 'if', 1, { conditions: { string: [{ value1: '={{ $json.origen }}', value2: 'web' }] } });
+  const resp = nodo('Responder diagnóstico', 'respondToWebhook', 1.1, {
+    respondWith: 'text', responseBody: '={{ $("Armar diagnóstico").first().json.html }}',
+    options: { responseCode: 200, responseHeaders: { entries: [{ name: 'Content-Type', value: 'text/html; charset=utf-8' }] } },
+  });
+  const devolver = nodo('Devolver al flujo 01', 'noOp', 1, {});
+  const nodes = [wh, sub, norm, iffForm, form, respForm, leerManual, iffMantis, leerInc, buscar, prom, armar, guardar,
+    iffNota, nota, resultado, iffWeb, resp, devolver];
+  escribir('05-diagnostico-manual.json', flujo(ID.diagnostico, '05 · Diagnóstico con el manual de errores (Nextcloud)', nodes, conectar([
+    [wh.name, norm.name], [sub.name, norm.name], [norm.name, iffForm.name], [iffForm.name, form.name, 0], [form.name, respForm.name],
+    [iffForm.name, leerManual.name, 1], [leerManual.name, iffMantis.name], [iffMantis.name, leerInc.name, 0],
+    [iffMantis.name, buscar.name, 1], [leerInc.name, buscar.name], [buscar.name, prom.name], [prom.name, armar.name],
+    [armar.name, guardar.name], [guardar.name, iffNota.name], [iffNota.name, nota.name, 0], [iffNota.name, resultado.name, 1],
+    [nota.name, resultado.name], [resultado.name, iffWeb.name], [iffWeb.name, resp.name, 0], [iffWeb.name, devolver.name, 1],
+  ])));
+}
+
+// ───────────── Manual de errores en Markdown (para leerlo en Nextcloud), generado del JSON ─────────────
+{
+  const M = JSON.parse(fs.readFileSync(path.join(DIR, '..', 'manual', 'manual-errores.json'), 'utf8'));
+  const lista = (xs) => xs.map((x) => `- ${x}`).join('\n');
+  const md = [`# ${M.titulo}`, '', `Versión ${M.version} · actualizado ${M.actualizado}.`, '', M.uso, '',
+    '> Generado desde `infra/n8n/manual/manual-errores.json` (la versión que lee n8n). No editar este archivo a mano.', '',
+    '## Índice', '', '| Código | Alerta / origen | Severidad | Error |', '|---|---|---|---|',
+    ...M.errores.map((e) => `| ${e.codigo} | ${e.alerta || `(${e.patron.split('|')[0]})`} | ${e.severidad} | ${e.titulo} |`)];
+  for (const e of M.errores) {
+    md.push('', `## ${e.codigo} · ${e.titulo}`, '', `**Componente:** ${e.componente} · **Severidad:** ${e.severidad}` +
+      (e.alerta ? ` · **Alerta:** \`${e.alerta}\`` : ''), '', `**Qué significa.** ${e.que_significa}`, '',
+      `**Impacto.** ${e.impacto}`, '', '**Causas probables**', '', lista(e.causas), '', '**Diagnóstico**', '', lista(e.diagnostico),
+      '', '**Solución**', '', lista(e.solucion), '', '**Verificación**', '', lista(e.verificacion), '', `**Escalar.** ${e.escalar}`, '',
+      `**Lo que consulta n8n en Prometheus:** ${e.consultas.map((k) => M.consultas[k].nombre).join('; ')}.`);
+  }
+  fs.writeFileSync(path.join(DIR, '..', 'manual', 'manual-errores.md'), md.join('\n') + '\n');
 }
 
 console.log('Flujos generados en', DIR);

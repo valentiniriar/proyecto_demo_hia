@@ -83,3 +83,19 @@ Así quedó probado el recorrido completo de una alerta **real**, de *firing* a 
 **Hallazgo:** el link de aprobación armaba `resumeUrl?decision=…`, pero `resumeUrl` ya trae `?signature=…`. La decisión quedaba pegada a la firma y n8n respondía **401 "Invalid token"**, una protección correcta de n8n. Corregido: la decisión va con `&`. La aprobación de la prueba se hizo con el link bien armado.
 
 #39 y #40 se cerraron en Mantis como prueba controlada.
+
+## Flujo 05 · Diagnóstico con el manual de errores (Nextcloud)
+
+Consigna: "hacer caer el nodo maestro, que n8n capture el error y devuelva un diagnóstico usando Nextcloud (con el manual, pasándole el ID del error)".
+
+1. Se detuvo el líder `gymhub_pg_2_prod`. Patroni promovió a **pg-3** (timeline 5 → 6) y la app siguió respondiendo 200.
+2. Alertmanager avisó al flujo 01, que abrió **#41** (`GymHubNodoPatroniCaido` pg-2), **#42** (`GymHubFailoverOcurrido`) y **#43** (`GymHubReplicasInsuficientes`).
+3. Con el ID `41`, el flujo 05 leyó el manual desde Nextcloud (`Manual-Operaciones/manual-errores.json`), encontró **GH-DB-001** y consultó Prometheus. Resultado: *DEGRADADO*, líder pg-3, nodo caído pg-2 (`docker start gymhub_pg_2_prod`), 1 réplica de 2, timeline 6, app OK.
+4. El diagnóstico quedó en Nextcloud (`Diagnosticos/diagnostico-GH-DB-001-inc41-20261120-1823.md`) y como nota en Mantis #41.
+
+| Prueba de seguridad | Resultado |
+|---|---|
+| Página sin usuario y clave | 401 |
+| ID inválido (`<script>`) | Rechazado y mostrado escapado |
+| `n8n-bot` intenta escribir en `Manual-Operaciones` | 403 (solo lectura) |
+

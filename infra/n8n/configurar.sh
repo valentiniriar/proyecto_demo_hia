@@ -10,7 +10,8 @@
 #      secreto de eventos de seguridad del backend en produccion/.env.prod.
 #   3. Levanta n8n, Mailpit y el analizador Python.
 #   4. Crea la cuenta owner si no existe (N8N_OWNER_EMAIL / N8N_OWNER_PASSWORD de infra/n8n/.env).
-#   5. Importa las credenciales (n8n las CIFRA con N8N_ENCRYPTION_KEY; el archivo temporal se borra) y los
+#   5. Publica el manual de errores en Nextcloud (infra/nextcloud/publicar-manual.sh).
+#   6. Importa las credenciales (n8n las CIFRA con N8N_ENCRYPTION_KEY; el archivo temporal se borra) y los
 #      flujos de infra/n8n/workflows/0*.json, publica los que tienen disparador y reinicia n8n.
 #
 # Secretos que lee (no versionados): token de Mantis del usuario n8n-bot (infra/mantis/credenciales.local.json)
@@ -41,6 +42,7 @@ falta N8N_ALERTAS_WEBHOOK_TOKEN && poner "$ENV" N8N_ALERTAS_WEBHOOK_TOKEN "$(ale
 falta N8N_EVENTOS_SECRET && poner "$ENV" N8N_EVENTOS_SECRET "$(aleatorio)"
 falta N8N_OWNER_EMAIL && poner "$ENV" N8N_OWNER_EMAIL admin@gymhub.local
 falta N8N_OWNER_PASSWORD && poner "$ENV" N8N_OWNER_PASSWORD "Gh$(aleatorio 12)9"
+falta N8N_DIAGNOSTICO_PASSWORD && poner "$ENV" N8N_DIAGNOSTICO_PASSWORD "$(aleatorio 12)"
 TS="$(command -v tailscale || echo '/c/Program Files/Tailscale/tailscale.exe')"
 IP=$("$TS" ip -4 2>/dev/null | head -1 || true)
 [ -n "$IP" ] && poner "$ENV" N8N_PUBLIC_BASE_URL "http://$IP:$(valor "$ENV" N8N_HOST_PORT || echo 5679)/"
@@ -69,12 +71,16 @@ else
   echo "  ya existía"
 fi
 
-echo "→ 5. Credenciales (cifradas por n8n) y flujos"
+echo "→ 5. Manual de errores en Nextcloud (lo lee el flujo 05)"
+bash infra/nextcloud/publicar-manual.sh || echo "  ⚠ no se pudo publicar el manual: el flujo 05 va a fallar hasta que exista"
+
+echo "→ 6. Credenciales (cifradas por n8n) y flujos"
 # Carpeta temporal DENTRO del proyecto (ignorada por Git): en Windows, Node y docker cp no ven /tmp de Git Bash.
 TMP=infra/n8n/.tmp-configurar
 rm -rf "$TMP"; ( umask 077; mkdir -p "$TMP" )
 trap 'rm -rf "$TMP"; docker exec "$C" rm -rf /tmp/gymhub-n8n 2>/dev/null || true' EXIT
 GYMHUB_ALERTAS="$(valor "$ENV" N8N_ALERTAS_WEBHOOK_TOKEN)" GYMHUB_EVENTOS="$(valor "$ENV" N8N_EVENTOS_SECRET)" \
+GYMHUB_DIAGNOSTICO="$(valor "$ENV" N8N_DIAGNOSTICO_PASSWORD)" \
 node -e '
   const fs = require("fs");
   const leer = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
@@ -93,6 +99,9 @@ node -e '
       data: { host: "mailpit", port: 1025, secure: false, disableStartTls: true, user: "", password: "" } },
     { id: "gymhubNextcloud1", name: "Nextcloud - n8n-bot (app password)", type: "httpBasicAuth",
       data: { user: "n8n-bot", password: nc.app_password } },
+    // Usuario y clave de la página de diagnóstico del flujo 05 (Basic Auth del webhook).
+    { id: "gymhubDiagnost01", name: "Diagnóstico - usuario y clave de la página", type: "httpBasicAuth",
+      data: { user: "diagnostico", password: process.env.GYMHUB_DIAGNOSTICO } },
   ];
   fs.writeFileSync(process.argv[1], JSON.stringify(creds), { mode: 0o600 });
 ' "$TMP/credenciales.json"
@@ -104,7 +113,8 @@ docker exec "$C" n8n import:credentials --input=/tmp/gymhub-n8n/credenciales.jso
 docker exec "$C" n8n import:workflow --separate --input=/tmp/gymhub-n8n/flujos 2>&1 | grep -iE 'import|error' || true
 # Se publican todos, incluido 00: en n8n 2.x el Error Workflow también tiene que estar activo, si no los
 # demás no pueden invocarlo ("Workflow GymHubErrores001 is not active and cannot be executed").
-for id in GymHubErrores001 GymHubAlertas001 GymHubBackups001 GymHubInforme001 GymHubSeguridad1; do
+# El 05 antes que el 01: n8n no publica un flujo que llama a un subflujo sin publicar.
+for id in GymHubErrores001 GymHubDiagnost1 GymHubAlertas001 GymHubBackups001 GymHubInforme001 GymHubSeguridad1; do
   docker exec "$C" n8n publish:workflow --id="$id" 2>&1 | grep -iE 'publish|error' || true
 done
 docker restart "$C" >/dev/null
@@ -112,6 +122,7 @@ for _ in $(seq 1 60); do curl -fsS "$URL/healthz" >/dev/null 2>&1 && break; slee
 
 echo "✔ n8n listo en $URL (owner: $(valor "$ENV" N8N_OWNER_EMAIL))"
 echo "  Flujos:  $(docker exec "$C" n8n list:workflow 2>/dev/null | grep -c '|') importados"
+echo "  Diagnóstico: $URL/webhook/gymhub-diagnostico  (usuario diagnostico, clave N8N_DIAGNOSTICO_PASSWORD de $ENV)"
 echo "  Mailpit: http://127.0.0.1:$(p=$(valor "$ENV" MAILPIT_HOST_PORT); echo "${p:-8026}")  (correos de los flujos)"
 echo "  Falta, si es la primera vez: bash scripts/infra.sh levantar (Alertmanager con el webhook) y un"
 echo "  despliegue del backend (SECURITY_EVENTS_WEBHOOK_SECRET) para que lleguen los eventos de seguridad."
