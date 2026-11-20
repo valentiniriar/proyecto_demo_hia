@@ -1,0 +1,41 @@
+
+== 1. Estado inicial del cluster
++ Cluster: gymhub-prod (7709553955309232162) ------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg-1   | pg-1 | Leader  | running   |  2 |             |     |            |     |
+| pg-2   | pg-2 | Replica | streaming |  2 |  1/A500B410 |   0 | 1/A500B410 |   0 |
+| pg-3   | pg-3 | Replica | streaming |  2 |  1/A500B410 |   0 | 1/A500B410 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+   Líder actual: pg-1 (gymhub_pg_1_prod)
+
+== 2. Se cae el maestro: docker stop gymhub_pg_1_prod
+   Detenido. Las escrituras fallan hasta que Patroni elija un nuevo líder…
+
+== 3. Esperando que una réplica tome el control
+.......
+   ✔ Nuevo líder: pg-2, en 23 s
++ Cluster: gymhub-prod (7709553955309232162) ------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg-2   | pg-2 | Leader  | running   |  3 |             |     |            |     |
+| pg-3   | pg-3 | Replica | streaming |  3 |  1/A500B568 |   0 | 1/A500B568 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+
+== 4. La app sigue escribiendo por HAProxy (db:5432), sin cambiar configuración
+CREATE TABLE
+INSERT 0 1
+   escritura OK en 192.168.48.10/32 (en recuperación: false)
+   ✔ La base volvió a aceptar escrituras 25 s después de la caída
+
+== 5. Vuelve el viejo maestro: docker start gymhub_pg_1_prod
+.
+   pg-1 quedó como: Replica streaming
++ Cluster: gymhub-prod (7709553955309232162) ------------+-----+------------+-----+
+| Member | Host | Role    | State     | TL | Receive LSN | Lag | Replay LSN | Lag |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+| pg-1   | pg-1 | Replica | streaming |  3 |  1/A5023CB0 |   0 | 1/A5023CB0 |   0 |
+| pg-2   | pg-2 | Leader  | running   |  3 |             |     |            |     |
+| pg-3   | pg-3 | Replica | streaming |  3 |  1/A5023CB0 |   0 | 1/A5023CB0 |   0 |
++--------+------+---------+-----------+----+-------------+-----+------------+-----+
+   ✔ Se reincorporó solo como réplica (pg_rewind o reclonado automático).
