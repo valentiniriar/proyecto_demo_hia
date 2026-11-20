@@ -2,8 +2,9 @@
 --  Migración 001 — Índices de optimización confirmados en SCRUM-39 / SCRUM-42
 --
 --  Se aplica sobre una base EXISTENTE (por ejemplo producción, con el dataset de 6M):
---     docker exec -i gymhub_db_prod psql -X -v ON_ERROR_STOP=1 -U <DB_USER> -d <DB_NAME> \
+--     docker exec -i -e PGPASSWORD=<DB_PASS> gymhub_pg_1_prod psql -X -h db -p 5432 -v ON_ERROR_STOP=1 -U <DB_USER> -d <DB_NAME> \
 --         -f - < database/migraciones/001_indices_optimizacion.sql
+--  (db:5432 = HAProxy → siempre el líder de Patroni; antes de Patroni se corría en gymhub_db_prod)
 --  Va DESPUÉS de cargar el dataset (database/dataset/cargar.sh). No se agrega a 01_schema.sql a
 --  propósito: dataset/01_preparar.sql aborta si encuentra índices que no son del esquema, para no
 --  cargar 6M filas manteniendo índices vivos (sería mucho más lento).

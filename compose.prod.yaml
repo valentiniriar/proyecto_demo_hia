@@ -26,31 +26,48 @@ services:
     image: ghcr.io/valentiniriar/gymhub-backend:${IMAGE_TAG:-latest}
     container_name: gymhub_backend_prod
     depends_on:
-      db:
-        condition: service_healthy
-      db-replica:
+      haproxy:
         condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3000
+      # "db" es HAProxy: 5432 lleva siempre al líder de Patroni y 5433 a las réplicas (o al líder).
       DB_HOST_PRIMARY: db
       DB_PORT_PRIMARY: 5432
-      DB_HOST_REPLICA: db-replica
-      DB_PORT_REPLICA: 5432
+      DB_HOST_REPLICA: db
+      DB_PORT_REPLICA: 5433
       DB_NAME: ${DB_NAME:?DB_NAME no definida}
       DB_USER: ${DB_USER:?DB_USER no definida}
       DB_PASS: ${DB_PASS:?DB_PASS no definida}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET no definida}
 
-  # En producción, ni el primario ni la réplica exponen puertos al host del servidor.
-  # Nombres propios para no chocar con los contenedores de desarrollo (demo_hia_db*) en la misma PC.
-  db:
-    container_name: gymhub_db_prod
-    ports: []
-
-  db-replica:
-    container_name: gymhub_db_replica_prod
-    ports: []
+  # Cluster Patroni de producción: ningún nodo ni HAProxy exponen puertos al host del servidor
+  # (se entra por el puente 5436). Nombres propios para no chocar con los de desarrollo en la misma PC.
+  etcd:
+    container_name: gymhub_etcd_prod
+  pg-1:
+    container_name: gymhub_pg_1_prod
+    environment:
+      PATRONI_SCOPE: gymhub-prod
+      PATRONI_SUPERUSER_USERNAME: ${DB_USER:?DB_USER no definida}
+      PATRONI_SUPERUSER_PASSWORD: ${DB_PASS:?DB_PASS no definida}
+      PATRONI_RESTAPI_PASSWORD: ${PATRONI_RESTAPI_PASSWORD:?PATRONI_RESTAPI_PASSWORD no definida}
+  pg-2:
+    container_name: gymhub_pg_2_prod
+    environment:
+      PATRONI_SCOPE: gymhub-prod
+      PATRONI_SUPERUSER_USERNAME: ${DB_USER:?DB_USER no definida}
+      PATRONI_SUPERUSER_PASSWORD: ${DB_PASS:?DB_PASS no definida}
+      PATRONI_RESTAPI_PASSWORD: ${PATRONI_RESTAPI_PASSWORD:?PATRONI_RESTAPI_PASSWORD no definida}
+  pg-3:
+    container_name: gymhub_pg_3_prod
+    environment:
+      PATRONI_SCOPE: gymhub-prod
+      PATRONI_SUPERUSER_USERNAME: ${DB_USER:?DB_USER no definida}
+      PATRONI_SUPERUSER_PASSWORD: ${DB_PASS:?DB_PASS no definida}
+      PATRONI_RESTAPI_PASSWORD: ${PATRONI_RESTAPI_PASSWORD:?PATRONI_RESTAPI_PASSWORD no definida}
+  haproxy:
+    container_name: gymhub_haproxy_prod
 
   backup:
     container_name: gymhub_backup_prod
@@ -68,5 +85,9 @@ volumes:
     name: gymhub_prod_db_data
   db_replica_data:
     name: gymhub_prod_db_replica_data
+  db_replica2_data:
+    name: gymhub_prod_db_replica2_data
+  etcd_data:
+    name: gymhub_prod_etcd_data
   db_backups:
     name: gymhub_prod_db_backups

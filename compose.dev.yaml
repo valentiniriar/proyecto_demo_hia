@@ -38,13 +38,23 @@ services:
       SECURITY_EVENTS_WEBHOOK_URL: ${SECURITY_EVENTS_WEBHOOK_URL:-}
       SECURITY_EVENTS_WEBHOOK_SECRET: ${SECURITY_EVENTS_WEBHOOK_SECRET:-}
 
-  db:
+  # Cluster Patroni: nombres propios para no chocar con la Forma A (docker-compose.yml, demo_hia_*).
+  etcd:
+    container_name: gymhub_etcd_dev
+  pg-1:
+    container_name: gymhub_pg_1_dev
+  pg-2:
+    container_name: gymhub_pg_2_dev
+  pg-3:
+    container_name: gymhub_pg_3_dev
+
+  # La PC entra a la base solo por HAProxy: 5433 = líder, 5434 = lecturas, 7000 = estado del cluster.
+  haproxy:
+    container_name: gymhub_haproxy_dev
     ports:
       - "127.0.0.1:${DB_PORT:-5433}:5432"
-
-  db-replica:
-    ports:
-      - "127.0.0.1:${DB_REPLICA_PORT:-5434}:5432"
+      - "127.0.0.1:${DB_REPLICA_PORT:-5434}:5433"
+      - "127.0.0.1:${HAPROXY_STATS_PORT:-7000}:7000"
 
   # pgAdmin habilitado en dev para inspección gráfica
   pgadmin:
@@ -52,7 +62,7 @@ services:
     container_name: demo_hia_pgadmin
     restart: unless-stopped
     depends_on:
-      db:
+      haproxy:
         condition: service_healthy
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@gymhub.com}

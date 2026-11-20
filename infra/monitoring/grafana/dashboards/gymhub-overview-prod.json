@@ -820,7 +820,7 @@
     },
     {
       "id": 19,
-      "title": "Lag de replica PostgreSQL (segundos)",
+      "title": "Atraso de cada réplica (bytes de WAL)",
       "type": "timeseries",
       "gridPos": {
         "x": 0,
@@ -835,13 +835,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "pg_replication_lag_seconds{job=\"postgres-replica\"}",
-          "legendFormat": "Replica {{instance}}"
+          "expr": "scalar(max(patroni_xlog_location{job=\"patroni\"})) - (patroni_xlog_replayed_location{job=\"patroni\"} and on(instance) patroni_replica{job=\"patroni\"} == 1)",
+          "legendFormat": "{{name}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "bytes"
         },
         "overrides": []
       }
@@ -863,7 +863,7 @@
     },
     {
       "id": 21,
-      "title": "Replica PostgreSQL UP",
+      "title": "Líder del cluster (Patroni)",
       "type": "stat",
       "gridPos": {
         "x": 0,
@@ -878,14 +878,37 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "pg_up{job=\"postgres-replica\"}"
+          "expr": "patroni_primary{job=\"patroni\"} == 1",
+          "legendFormat": "{{name}}",
+          "instant": true
         }
-      ]
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "name",
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      }
     },
     {
       "id": 22,
-      "title": "Replica en recovery (1=standby)",
-      "type": "stat",
+      "title": "Rol por nodo (1 = líder, 0 = réplica, sin dato = caído)",
+      "type": "timeseries",
       "gridPos": {
         "x": 12,
         "y": 63,
@@ -899,7 +922,82 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "pg_replication_is_replica{job=\"postgres-replica\"}"
+          "expr": "patroni_primary{job=\"patroni\"}",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "max": 1,
+          "custom": {
+            "lineInterpolation": "stepAfter"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 23,
+      "title": "Nodos del cluster encendidos",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 68,
+        "w": 12,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(up{job=\"patroni\"})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "green",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 24,
+      "title": "Cambios de líder (failover / switchover) en 1 h",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 68,
+        "w": 12,
+        "h": 5
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "changes(max(patroni_postgres_timeline{job=\"patroni\"})[1h:15s])"
         }
       ]
     }

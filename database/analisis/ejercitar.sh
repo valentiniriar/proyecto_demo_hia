@@ -3,9 +3,9 @@
 #  SCRUM-39 - Ejercitar la app con el dataset de 6M y analizar las consultas
 #
 #  Requisitos:
-#    - Dataset de SCRUM-35 cargado en demo_hia_db_dev (docker compose --profile dev)
+#    - Dataset de SCRUM-35 cargado en el cluster de dev (docker compose -f docker-compose.yml --profile dev)
 #    - El contenedor reiniciado DESPUES de agregar pg_stat_statements a
-#      shared_preload_libraries:  docker restart demo_hia_db_dev
+#      shared_preload_libraries:  docker restart demo_hia_pg_1 (si es el único nodo; con réplicas usar patronictl restart)
 #    - Node >= 18 y backend/node_modules instalado (npm ci en backend/)
 #    - Sin el perfil "cluster" levantado (ver docs/SCRUM-35-dataset-6m.md)
 #
@@ -13,7 +13,7 @@
 #     ./database/analisis/ejercitar.sh
 #
 #  Variables opcionales:
-#     CONTAINER     contenedor de PostgreSQL       (default: demo_hia_db_dev)
+#     CONTAINER     contenedor de PostgreSQL       (default: demo_hia_pg_1, debe ser el líder)
 #     PASO_MUESTRA  1 socio cada N ids             (default: 20000 -> ~270 socios; se arranca en 1037
 #                   porque ds_rol hace admin a los ids multiplos de 1000)
 #     CONCURRENCIA  requests HTTP en paralelo      (default: 4)
@@ -29,7 +29,8 @@ set -euo pipefail
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DIR_SQL="$RAIZ/database/analisis"
 DIR_EV="$RAIZ/docs/evidencias/SCRUM-39"
-CONTAINER="${CONTAINER:-demo_hia_db_dev}"
+# Con Patroni tiene que ser el nodo LÍDER (ver "patronictl list"); por defecto pg-1.
+CONTAINER="${CONTAINER:-demo_hia_pg_1}"
 PASO_MUESTRA="${PASO_MUESTRA:-20000}"
 CONCURRENCIA="${CONCURRENCIA:-4}"
 PUERTO="${PUERTO:-3039}"

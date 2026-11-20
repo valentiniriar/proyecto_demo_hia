@@ -6,6 +6,9 @@
 - **Fecha:** 12/11/2026
 - **Estado:** Procedimiento probado y documentado
 
+> [!IMPORTANT]
+> **Reemplazado por failover automático con Patroni.** Este documento describe el procedimiento **manual** original (primario `db` + réplica `db-replica`, `pg_promote()` a mano). La arquitectura actual usa un cluster Patroni de 3 nodos con etcd y HAProxy: si cae el líder, otro nodo toma el control solo y el viejo vuelve como réplica. Ver [`implementacion-patroni.MD`](implementacion-patroni.MD). Se conserva como registro del ticket.
+
 ---
 
 ## 1. Simulación Controlada de Caída del Nodo Primario
