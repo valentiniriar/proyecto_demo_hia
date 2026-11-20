@@ -403,11 +403,11 @@ Todos los servicios de operación escuchan **solo en `127.0.0.1`** del servidor.
 | Servicio | En el servidor | Desde la tailnet |
 |---|---|---|
 | App de producción | http://127.0.0.1/ | http://gymhub-servidor.tailec3350.ts.net/ |
-| Grafana | http://127.0.0.1:3001/ | http://gymhub-servidor.tailec3350.ts.net:3001/ |
-| Prometheus | http://127.0.0.1:9091/ | http://gymhub-servidor.tailec3350.ts.net:9091/ |
-| Alertmanager | http://127.0.0.1:9093/ | http://gymhub-servidor.tailec3350.ts.net:9093/ |
-| Mantis | http://127.0.0.1:8990/ | http://gymhub-servidor.tailec3350.ts.net:8990/ |
-| n8n | http://127.0.0.1:5679/ | http://gymhub-servidor.tailec3350.ts.net:5679/ |
+| Grafana | http://127.0.0.1:3001/ | http://100.65.22.99:3001/ |
+| Prometheus | http://127.0.0.1:9091/ | http://100.65.22.99:9091/ |
+| Alertmanager | http://127.0.0.1:9093/ | http://100.65.22.99:9093/ |
+| Mantis | http://127.0.0.1:8990/ | http://100.65.22.99:8990/ |
+| n8n | http://127.0.0.1:5679/ | http://100.65.22.99:5679/ |
 | Base de producción | `127.0.0.1:5436` | `gymhub-servidor.tailec3350.ts.net:5436` |
 
 Verificado: por la tailnet todos responden; por la red local (`192.168.100.12`) **ninguno**.
