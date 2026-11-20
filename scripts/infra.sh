@@ -25,7 +25,7 @@ PROD_ENV="$PROD_DIR/.env.prod"
 
 MON=(docker compose -f infra/monitoring/docker-compose.yml -f infra/monitoring/docker-compose.prod.yml --env-file infra/monitoring/.env)
 MANTIS=(docker compose -f infra/mantis/docker-compose.yml --env-file infra/mantis/.env)
-N8N=(docker compose -f infra/n8n/docker-compose.yml -f infra/n8n/SCRUM-76.n8n.override.example.yml --env-file infra/n8n/.env)
+N8N=(docker compose -f infra/n8n/docker-compose.yml --env-file infra/n8n/.env)
 ADMIN=(docker compose -f infra/admin/docker-compose.yml)
 NC=(docker compose -f infra/nextcloud/docker-compose.yml --env-file infra/nextcloud/.env)
 
@@ -41,9 +41,25 @@ requisitos() {
   return $falta
 }
 
+# Alertmanager de producción manda las alertas a n8n con un token (ver alertmanager.prod.yml). Si el
+# archivo del secreto no existe, se crea a partir de infra/n8n/.env (o se genera el token).
+asegurar_token_alertas() {
+  local f=infra/monitoring/secrets/alertmanager_n8n_token t
+  [ -s "$f" ] && return 0
+  t=$(valor infra/n8n/.env N8N_ALERTAS_WEBHOOK_TOKEN | tr -d '\r')
+  if [ -z "$t" ]; then
+    t=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+    printf '\nN8N_ALERTAS_WEBHOOK_TOKEN=%s\n' "$t" >> infra/n8n/.env
+  fi
+  mkdir -p infra/monitoring/secrets
+  ( umask 077; printf '%s' "$t" > "$f" )
+  echo "→ Token de Alertmanager → n8n creado (correr bash infra/n8n/configurar.sh para cargarlo en n8n)"
+}
+
 case "${1:-estado}" in
   levantar)
     requisitos
+    asegurar_token_alertas
     bash infra/monitoring/generar-prod.sh >/dev/null
     echo "→ gymhub-monitoreo";               "${MON[@]}" up -d --quiet-pull 2>&1 | grep -vE "^\s*$" | tail -1
     echo "→ gymhub-herramientas: Mantis";    "${MANTIS[@]}" up -d 2>&1 | tail -1
@@ -108,7 +124,8 @@ case "${1:-estado}" in
       echo "  Base de Nextcloud: nextcloud / $(valor infra/nextcloud/.env NEXTCLOUD_DB_PASS)"
       echo
       echo "== n8n (http://127.0.0.1:$(valor infra/n8n/.env N8N_HOST_PORT)/) =="
-      echo "  Cuenta owner: la que se creó en el primer ingreso (anotarla acá a mano si se desea)."
+      echo "  Cuenta owner: $(valor infra/n8n/.env N8N_OWNER_EMAIL) / $(valor infra/n8n/.env N8N_OWNER_PASSWORD)"
+      echo "  Mailpit (correos de los flujos): http://127.0.0.1:$(p=$(valor infra/n8n/.env MAILPIT_HOST_PORT); echo "${p:-8026}")/  (sin usuario)"
       echo "  N8N_ENCRYPTION_KEY: $(valor infra/n8n/.env N8N_ENCRYPTION_KEY)"
       echo
       echo "== Cloudflare Tunnel con nombre =="

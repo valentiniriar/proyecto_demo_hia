@@ -1,4 +1,90 @@
-# Documento técnico n.º 13 — Seguridad y pruebas de automatizaciones (SCRUM-79)
+# Documento técnico n.º 13 — Automatización de procesos con n8n
+
+## A. Estado en producción (20/11/2026)
+
+n8n corre en el servidor de producción con **6 flujos activos** que integran **6 componentes**: Prometheus, Alertmanager, Mantis, Nextcloud, el backend y el backup de la base. Todo se configura con `bash infra/n8n/configurar.sh` (idempotente). Se probó de punta a punta con una **alerta real** (réplica de Patroni detenida → Mantis #39 → nota de cierre al volver) y con la **aprobación humana** del informe crítico (Mantis #40). El flujo 05 diagnostica cualquier error a partir de su ID usando el **manual de errores guardado en Nextcloud** (probado con la caída del maestro de Patroni, Mantis #41). Evidencias: [evidencias/SCRUM-n8n-produccion](evidencias/SCRUM-n8n-produccion/README.md).
+
+### A.1 Arquitectura
+
+```mermaid
+flowchart LR
+  PR[Prometheus] -->|regla en firing| AM[Alertmanager]
+  AM -->|webhook + Bearer| F1
+  BE[Backend] -->|evento + X-GymHub-Secret| F4
+  BK[(backup<br/>latest_status.json)] -.->|solo lectura| F2
+  PR -->|métricas 24 h| F3
+  subgraph n8n
+    F1[01 Alertas → Mantis]
+    F2[02 Verificación de backups]
+    F3[03 Informe de rendimiento]
+    F4[04 Eventos de seguridad]
+    F0[00 Manejo de errores]
+    F5[05 Diagnóstico con el manual]
+  end
+  F3 -->|series| PY[analizador Python]
+  F1 & F2 & F4 -->|incidencia| MT[Mantis]
+  F3 -->|informe .md| NC[Nextcloud<br/>Informes-IA]
+  F3 -->|si es crítico: aprobación humana| MT
+  F1 & F2 & F3 & F0 -->|mail| MP[Mailpit]
+  F1 -->|subflujo: ID de la incidencia| F5
+  OP((Operador)) -->|página + ID del error| F5
+  NCM[Nextcloud<br/>Manual-Operaciones] -.->|solo lectura| F5
+  PR -->|estado actual| F5
+  F5 -->|diagnóstico .md| NCD[Nextcloud<br/>Diagnosticos]
+  F5 -->|nota| MT
+```
+
+| Contenedor | Qué es | Acceso |
+|---|---|---|
+| `gymhub-n8n-scrum75` | n8n 2.48.5 (versión fija). Reinicio automático. Redes: tools, monitoreo y la web de producción (alias `n8n`) | `127.0.0.1:5679` · tailnet `http://100.65.22.99:5679` |
+| `gymhub-mailpit` | Servidor SMTP **interno**: atrapa los correos y los muestra en una web; no envía nada a Internet | `127.0.0.1:8026` · tailnet `http://100.65.22.99:8026` |
+| `gymhub-analizador` | Componente **Python** del flujo 3 (solo biblioteca estándar), contenedor de solo lectura y sin privilegios | Solo red interna (`analizador:8000`) |
+
+### A.2 Flujos: disparadores, condiciones y acciones
+
+| Flujo | Disparador | Condiciones y validación | Acciones |
+|---|---|---|---|
+| **00 · Manejo de errores** | *Error Trigger*: cualquier otro flujo que falle | — | Mail con flujo, nodo, error y link a la ejecución |
+| **01 · Alertas → Mantis** (SCRUM-76) | Webhook `POST /webhook/gymhub-alertas` desde Alertmanager, con `Authorization: Bearer` | Estructura del payload, estado, severidad y *fingerprint*. Deduplica por *fingerprint* | *firing*: crea la incidencia (prioridad según severidad) y manda mail. *resolved*: agrega una nota de cierre |
+| **02 · Verificación de backups** | Todos los días 04:00, o manual | Estado `success`, antigüedad < 26 h y archivo no vacío | OK: registra. Fallo: incidencia en Mantis (Base de datos) y mail |
+| **03 · Informe de rendimiento** | Todos los días 08:00, o manual | Valida las respuestas de Prometheus y del analizador | 7 métricas de 24 h → analizador Python (umbrales, z robusto con mediana y MAD, tendencia) → informe `.md` en Nextcloud `Informes-IA/` → mail. **Si es crítico, pide aprobación humana** antes de abrir la incidencia |
+| **04 · Eventos de seguridad** (SCRUM-84) | Webhook `POST /webhook/gymhub-seguridad` desde el backend, con `X-GymHub-Secret` | Tipo de evento conocido e IP con formato válido. Clasifica fuerza bruta (10 fallidos en 5 min), rate limit e IP nueva de admin. Deduplica 1 h, contra Mantis | Incidencia de Seguridad en Mantis |
+| **05 · Diagnóstico con el manual** | Página `GET /webhook/gymhub-diagnostico?id=…` (usuario y clave, *Basic Auth*), o el flujo 01 como subflujo con cada incidencia nueva | El ID tiene que ser un número de incidencia de Mantis o un código del manual (`GH-DB-001`); otro valor se rechaza. Si la incidencia no está en el manual, lo informa | Lee el **manual de errores desde Nextcloud** (`Manual-Operaciones/manual-errores.json`), busca la entrada del error, consulta el **estado actual** en Prometheus (líder, nodos caídos, réplicas, timeline, app), arma el diagnóstico (conclusión, causas, pasos, solución y verificación), lo guarda en Nextcloud `Diagnosticos/` y lo agrega como **nota en Mantis** |
+
+**Manual de errores.** [infra/n8n/manual/manual-errores.json](../infra/n8n/manual/manual-errores.json) tiene 24 errores con código (`GH-DB-001` a `GH-REN-001`), uno por cada alerta de Prometheus más los de backup, seguridad y rendimiento. `bash infra/nextcloud/publicar-manual.sh` lo publica en Nextcloud junto con su versión para leer (`manual-errores.md`). n8n solo tiene **lectura** en esa carpeta: el robot no puede cambiar las instrucciones que sigue.
+
+**Prueba de la consigna "cae el maestro".** Se detiene el líder (`docker stop gymhub_pg_N_prod`). Patroni promueve una réplica y Alertmanager avisa al flujo 01, que abre las incidencias y llama al 05 con cada una. El diagnóstico queda en Mantis, en Nextcloud y en el mail. Para pedirlo a mano: `http://100.65.22.99:5679/webhook/gymhub-diagnostico?id=<n.º de incidencia>`.
+
+Los JSON versionados están en `infra/n8n/workflows/0*.json` y se generan con `node infra/n8n/workflows/generar.js` a partir de los flujos del equipo (`workflows/originales/`). Los originales tenían dos errores que se corrigieron:
+- El flujo 2 mandaba `category` como texto y sin proyecto, así que Mantis lo rechazaba. Además usaba *Execute Command*, que n8n 2.x desactiva.
+- El flujo 1 escapaba dos veces los saltos de línea y el link a Mantis apuntaba a `localhost`.
+
+### A.3 Seguridad
+
+| Requisito del TP | Cómo se cumple |
+|---|---|
+| Proteger la interfaz de administración | n8n solo en `127.0.0.1` y en la tailnet; cuenta owner con contraseña aleatoria (`infra/n8n/.env`, no versionado) |
+| Autenticar los webhooks | Flujo 01 con `Bearer`, flujo 04 con `X-GymHub-Secret` y flujo 05 con usuario y clave. Sin token o con token incorrecto → **403** (probado) |
+| Evitar secretos escritos en los flujos | Los JSON solo referencian credenciales por ID. Las 6 credenciales se importan **cifradas** con `N8N_ENCRYPTION_KEY`; el archivo temporal se borra |
+| Restringir permisos de las credenciales | Mantis con el usuario `n8n-bot` (permisos mínimos); Nextcloud con la *app password* de `n8n-bot`, que solo escribe en `Informes-IA` y `Diagnosticos` y solo **lee** `Manual-Operaciones`; backups montados en **solo lectura** y `N8N_RESTRICT_FILE_ACCESS_TO=/backups` |
+| Validar los datos recibidos | Validación de estructura y valores en los flujos 01, 04 y 05 (el ID del error); lo inválido falla y dispara el flujo 00 |
+| Controlar acciones que puedan interrumpir servicios | Ningún flujo reinicia, apaga ni borra nada: solo leen, registran y avisan |
+| Aprobación humana antes de acciones críticas | Flujo 03: si el informe sale crítico, manda un mail con links **Aprobar / Rechazar** (nodo *Wait*, vence en 24 h); solo con aprobación abre la incidencia |
+
+### A.4 Riesgos de las automatizaciones
+
+| Riesgo | Mitigación |
+|---|---|
+| Tormenta de alertas → muchas incidencias | Deduplicación por *fingerprint* (01) y por clave en 1 h (04); Alertmanager agrupa (`group_by`) |
+| Webhook expuesto y abusado | Solo accesible en las redes internas de Docker; requiere token o secreto |
+| Falla silenciosa de un flujo | Flujo 00 manda un mail; las ejecuciones fallidas se guardan 14 días |
+| Eventos simultáneos → incidencias duplicadas | El flujo 04 consulta en **Mantis** si ya hay una abierta igual en la última hora, y las ejecuciones van de a una (`N8N_CONCURRENCY_PRODUCTION_LIMIT=1`). Probado: 6 avisos en paralelo → 1 incidencia. La memoria en `staticData` sola no alcanzaba |
+| Informe "IA" interpretado como verdad | El informe aclara el método y que no reemplaza la revisión humana; escalar requiere aprobación |
+| n8n caído | Reinicio automático; si no arranca, las alertas siguen en Alertmanager y Grafana |
+
+---
+
+## B. Auditoría inicial (SCRUM-79, 14/11/2026)
 
 **Generado:** 2026-11-14 14:02:30 -0300
 **Ambiente:** GymHub, n8n local aislado en Docker.

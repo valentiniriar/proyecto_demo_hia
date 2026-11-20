@@ -30,6 +30,17 @@ services:
   blackbox-exporter:
     networks: [monitoring, prod_web]
 
+  # Alertas → n8n (flujo 01) → Mantis + mail. n8n está en esta misma red (gymhub-monitoreo_monitoring).
+  alertmanager:
+    volumes:
+      - ./alertmanager/alertmanager.prod.yml:/etc/alertmanager/alertmanager.yml:ro
+    secrets:
+      - alertmanager_n8n_token
+
+secrets:
+  alertmanager_n8n_token:
+    file: ./secrets/alertmanager_n8n_token
+
 networks:
   prod_db:
     external: true

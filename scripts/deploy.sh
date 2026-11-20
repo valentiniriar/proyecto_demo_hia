@@ -80,12 +80,41 @@ for viejo in "${CONTENEDORES_VIEJOS[@]}"; do
 done
 ANTERIOR="$(cat "$ACTUAL" 2>/dev/null || true)"
 
+# Imágenes que se construyen en el servidor (no están en GHCR): sin build, un cambio en database/backup/
+# o database/patroni/ nunca llegaba a producción, porque "up" reutiliza la imagen local. Pero con el
+# almacén de imágenes de containerd (Docker Desktop), CUALQUIER "compose build" hace que el "up" recree
+# los contenedores aunque la imagen salga idéntica: los 3 nodos de Patroni se reiniciaban a la vez en cada
+# despliegue (20/11/2026). Por eso se construye solo si cambió la carpeta (hash del árbol en git) o si
+# falta la imagen. El último hash construido se guarda junto a la versión desplegada.
+IMAGENES_LOCALES="$ESTADO_DIR/imagenes-locales.txt"
+construir_locales() {
+  local servicio carpeta imagen hash previo
+  for spec in "backup database/backup gymhub-backup:latest" "pg-1 database/patroni gymhub-patroni:16"; do
+    read -r servicio carpeta imagen <<<"$spec"
+    hash=$(git rev-parse "HEAD:$carpeta" 2>/dev/null || echo "sin-git")
+    previo=$(awk -v c="$carpeta" '$1 == c {print $2}' "$IMAGENES_LOCALES" 2>/dev/null || true)
+    if [ "$hash" != "sin-git" ] && [ "$hash" = "$previo" ] && docker image inspect "$imagen" >/dev/null 2>&1; then
+      log "→ $carpeta sin cambios: se reutiliza $imagen"
+      continue
+    fi
+    if [ "$hash" = "sin-git" ] && docker image inspect "$imagen" >/dev/null 2>&1; then
+      log "→ Sin git para comparar $carpeta: se reutiliza $imagen"
+      continue
+    fi
+    log "→ $carpeta cambió (o falta la imagen): construyendo $imagen"
+    "${COMPOSE[@]}" build "$servicio"
+    { grep -v "^$carpeta " "$IMAGENES_LOCALES" 2>/dev/null || true; echo "$carpeta $hash"; } > "$IMAGENES_LOCALES.tmp"
+    mv "$IMAGENES_LOCALES.tmp" "$IMAGENES_LOCALES"
+  done
+}
+
 desplegar() {
   local tag="$1"
   if [ "${SKIP_PULL:-0}" != 1 ]; then
     log "→ Descargando imágenes $tag de GHCR"
     IMAGE_TAG="$tag" "${COMPOSE[@]}" pull backend frontend
   fi
+  construir_locales
   log "→ Levantando servicios con IMAGE_TAG=$tag"
   # --wait: espera a que los servicios con healthcheck (db, réplica, backend) estén healthy.
   IMAGE_TAG="$tag" "${COMPOSE[@]}" up -d --wait --wait-timeout 240 "${SERVICIOS[@]}"

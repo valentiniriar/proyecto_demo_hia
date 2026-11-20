@@ -1,0 +1,25 @@
+# Alertmanager de PRODUCCIÓN (SCRUM-68/76): manda las alertas a n8n (flujo 01), que abre la incidencia en
+# Mantis, avisa al responsable por mail y, cuando la alerta se resuelve, agrega la nota de cierre.
+# El de laboratorio (alertmanager.yml) sigue sin notificaciones.
+#
+# El webhook exige "Authorization: Bearer <token>". El token NO está en este archivo: Alertmanager lo lee
+# del secreto montado en /run/secrets/alertmanager_n8n_token (infra/monitoring/secrets/, ignorado por Git;
+# lo genera infra/n8n/configurar.sh o scripts/infra.sh levantar).
+global:
+  resolve_timeout: 5m
+route:
+  receiver: n8n-mantis
+  group_by: ['alertname', 'component']
+  group_wait: 30s          # junta las alertas que se disparan juntas en un solo envío
+  group_interval: 5m
+  repeat_interval: 12h     # n8n deduplica por fingerprint: el reenvío no abre otra incidencia
+receivers:
+  - name: n8n-mantis
+    webhook_configs:
+      - url: 'http://gymhub-n8n-scrum75:5678/webhook/gymhub-alertas'
+        send_resolved: true
+        max_alerts: 20
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /run/secrets/alertmanager_n8n_token

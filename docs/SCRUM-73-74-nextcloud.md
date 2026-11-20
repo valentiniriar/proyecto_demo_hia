@@ -73,7 +73,7 @@ Los contenedores tienen `restart: unless-stopped` y vuelven a arrancar solos cua
 | Desde | URL |
 |---|---|
 | La PC servidor | <http://localhost:8082> |
-| Otro dispositivo de la tailnet (después de `bash scripts/tailscale-serve.sh`) | <http://gymhub-servidor.tailec3350.ts.net:8082> |
+| Otro dispositivo de la tailnet (después de `bash scripts/tailscale-serve.sh`) | <http://100.65.22.99:8082> |
 
 | Cuenta | Para qué | Dónde está la contraseña |
 |---|---|---|
