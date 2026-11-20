@@ -7,11 +7,13 @@ import { EjercicioService } from '../../services/ejercicio.service';
 import { Rutina } from '../../models/rutina.model';
 import { Usuario } from '../../models/usuario.model';
 import { Ejercicio } from '../../models/ejercicio.model';
+import { Pagina } from '../../models/pagina.model';
+import { PaginadorComponent } from '../paginador/paginador.component';
 
 @Component({
   selector: 'app-rutinas-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, PaginadorComponent],
   templateUrl: './rutinas-list.component.html',
   styleUrl: './rutinas-list.component.css'
 })
@@ -20,6 +22,8 @@ export class RutinasListComponent implements OnInit {
   rutinas: Rutina[] = [];
   usuarios: Usuario[] = [];
   ejercicios: Ejercicio[] = [];
+  page: number = 1;
+  hasMore: boolean = false;
 
   cargando: boolean = true;
   mensajeExito: string = '';
@@ -58,11 +62,7 @@ export class RutinasListComponent implements OnInit {
   }
 
   cargarDatosFormulario(): void {
-    this.usuarioService.getSocios().subscribe({
-      next: (res: any) => {
-        if (res.status === '1') this.usuarios = res.usuarios;
-      }
-    });
+    this.buscarSocios();
 
     this.ejercicioService.getEjercicios().subscribe({
       next: (ejercicios: any) => {
@@ -71,12 +71,31 @@ export class RutinasListComponent implements OnInit {
     });
   }
 
-  cargarRutinas(): void {
+  // Combo de socios: hay millones, así que se busca por DNI (sin DNI, los 20 más recientes).
+  buscarSocios(dni: string = ''): void {
+    this.usuarioService.getSocios(dni.trim()).subscribe({
+      next: (res: any) => {
+        if (res.status === '1') this.usuarios = res.usuarios;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  // Al editar, el socio de la rutina puede no estar entre los resultados del buscador.
+  private asegurarSocioEnCombo(usuario?: Usuario): void {
+    if (usuario && !this.usuarios.some(u => u.id === usuario.id)) {
+      this.usuarios = [usuario, ...this.usuarios];
+    }
+  }
+
+  cargarRutinas(page: number = this.page): void {
     this.cargando = true;
-    this.rutinaService.getRutinas().subscribe({
-      next: (rutinas: any) => {
+    this.rutinaService.getRutinas(undefined, undefined, page).subscribe({
+      next: (res: Pagina<Rutina>) => {
         this.cargando = false;
-        this.rutinas = rutinas;
+        this.rutinas = res.items;
+        this.page = res.page;
+        this.hasMore = res.hasMore;
         this.cdr.detectChanges();
       },
       error: () => {
@@ -96,6 +115,7 @@ export class RutinasListComponent implements OnInit {
   abrirModalEditar(rutina: Rutina): void {
     this.modoEdicion = true;
     this.rutinaSeleccionadaId = rutina.id;
+    this.asegurarSocioEnCombo(rutina.usuario);
     this.rutinaForm.patchValue({
       dia_semana: rutina.dia_semana,
       turno: rutina.turno,

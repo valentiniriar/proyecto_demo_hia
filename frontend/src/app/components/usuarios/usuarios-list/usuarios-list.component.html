@@ -134,6 +134,7 @@
 
           </table>
         </div>
+        <app-paginador [page]="page" [hasMore]="hasMore" [cargando]="cargando" (cambiarPagina)="cargarUsuarios($event)" />
       </div>
     </div>
   }

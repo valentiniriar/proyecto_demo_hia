@@ -22,8 +22,8 @@ export class RutinaService {
     };
   }
 
-  public getRutinas(idUsuario?: number, idEjercicio?: number): Observable<any> {
-    let parametros = new HttpParams();
+  public getRutinas(idUsuario?: number, idEjercicio?: number, page: number = 1): Observable<any> {
+    let parametros = new HttpParams().set('page', page);
     
     if (idUsuario) {
       parametros = parametros.append('idUsuario', idUsuario);

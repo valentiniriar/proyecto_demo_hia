@@ -92,6 +92,7 @@
 
           </table>
         </div>
+        <app-paginador [page]="page" [hasMore]="hasMore" [cargando]="cargando" (cambiarPagina)="cargarSuscripciones($event)" />
       </div>
     </div>
   }
@@ -114,8 +115,13 @@
           
           <div class="mb-3">
             <label class="form-label fw-semibold small text-secondary">SELECCIONAR SOCIO</label>
+            <div class="input-group mb-2">
+              <input #dniSocio type="text" inputmode="numeric" class="form-control" placeholder="Buscar por DNI"
+                     (keydown.enter)="$event.preventDefault(); buscarSocios(dniSocio.value)">
+              <button type="button" class="btn btn-outline-secondary" (click)="buscarSocios(dniSocio.value)">🔍 Buscar</button>
+            </div>
             <select class="form-select form-select-lg fs-6" formControlName="usuarioId" [class.is-invalid]="suscripcionForm.get('usuarioId')?.invalid && suscripcionForm.get('usuarioId')?.touched">
-              <option value="">Buscar socio...</option>
+              <option value="">{{ usuarios.length ? "Elegir socio..." : "Sin resultados para ese DNI" }}</option>
               @for (u of usuarios; track u.id) {
                 <option [value]="u.id">{{ u.nombre }} {{ u.apellido }} (DNI: {{ u.dni }})</option>
               }

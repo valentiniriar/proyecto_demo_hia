@@ -109,6 +109,7 @@
 
           </table>
         </div>
+        <app-paginador [page]="page" [hasMore]="hasMore" [cargando]="cargando" (cambiarPagina)="cargarTarifas($event)" />
       </div>
     </div>
   }
@@ -128,12 +129,16 @@
           
           <div class="mb-3">
             <label class="form-label fw-semibold small text-secondary">SELECCIONAR SUSCRIPCIÓN</label>
+            <div class="input-group mb-2">
+              <input #busquedaSusc type="text" inputmode="numeric" class="form-control" placeholder="Buscar por N° de suscripción o DNI del socio"
+                     (keydown.enter)="$event.preventDefault(); buscarSuscripciones(busquedaSusc.value)">
+              <button type="button" class="btn btn-outline-secondary" (click)="buscarSuscripciones(busquedaSusc.value)">🔍 Buscar</button>
+            </div>
             <select class="form-select form-select-lg fs-6" formControlName="suscripcionId" (change)="alCambiarSuscripcion($event)" [class.is-invalid]="tarifaForm.get('suscripcionId')?.invalid && tarifaForm.get('suscripcionId')?.touched">
-              <option value="">Buscar suscripción activa...</option>
+              <option value="">{{ suscripciones.length ? "Elegir suscripción activa..." : "Sin resultados para esa búsqueda" }}</option>
               @for (susc of suscripciones; track susc.id) {
                 @if (susc.activo) {
-                  <!-- Si tuviéramos el include usuario podríamos mostrar el nombre, por ahora mostramos el ID y el precio -->
-                  <option [value]="susc.id">Suscripción #{{ susc.id }} - Mensualidad: ${{ susc.precio }}</option>
+                  <option [value]="susc.id">Suscripción #{{ susc.id }} - {{ susc.usuario?.apellido }}, {{ susc.usuario?.nombre }} (DNI: {{ susc.usuario?.dni }}) - Mensualidad: ${{ susc.precio }}</option>
                 }
               }
             </select>

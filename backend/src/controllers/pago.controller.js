@@ -4,6 +4,7 @@ const Suscripcion = require('./../../src/models/suscripcion.model');
 const Rol = require('./../../src/models/rol.model');
 const UsuarioRol = require('./../../src/models/usuarioRol.model');
 const { obtenerPago, PagoNoVerificableError } = require('../services/mercadopago.service');
+const { leerPaginacion, opcionesConsulta, armarPagina } = require('../utils/paginacion');
 
 const pagoCtrl = {};
 
@@ -104,13 +105,14 @@ pagoCtrl.createPago = async (req, res) => {
 
 pagoCtrl.getPagos = async (req, res) => { 
   try { 
-    const pagos = await Pago.findAll(
-            {include: [
-           {model: Tarifa, as: 'tarifa', attributes: ['anio','mes' , 'precio', 'activo']}
-        ]}
-
-    ); 
-    res.json(pagos); 
+    const paginacion = leerPaginacion(req);
+    const pagos = await Pago.findAll({
+        include: [
+            {model: Tarifa, as: 'tarifa', attributes: ['anio','mes' , 'precio', 'activo']}
+        ],
+        ...opcionesConsulta(paginacion)
+    });
+    res.json(armarPagina(pagos, paginacion));
   } catch (error) { 
     res.status(500).json({ status: '0', msg: 'Error al obtener los pagos.' }); 
   } 

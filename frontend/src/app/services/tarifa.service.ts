@@ -1,6 +1,6 @@
 import { environment } from '../../environments/environment';
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { LoginService } from './login.service';
 
@@ -22,8 +22,8 @@ export class TarifaService {
     };
   }
 
-  public getTarifas(): Observable<any> {
-    return this._http.get(this.hostBase, this.getAuthHeaders());
+  public getTarifas(page: number = 1): Observable<any> {
+    return this._http.get(this.hostBase, { ...this.getAuthHeaders(), params: new HttpParams().set('page', page) });
   }
 
   public getMisTarifas(): Observable<any> {
