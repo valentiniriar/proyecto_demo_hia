@@ -63,8 +63,23 @@ Hallazgo durante la prueba: en n8n 2.x el *Error Workflow* también tiene que es
 
 Las incidencias que generaron las pruebas (#18–#38) se cerraron en Mantis con una nota que las identifica como prueba controlada, y las duplicadas quedaron con resolución "duplicada". Queda abierta solo la #8 (BUG-008), que es real.
 
-## Pendiente
+## Prueba de punta a punta con una condición real (réplica caída)
 
-- **Alerta real de Prometheus** (no inyectada) recorriendo Alertmanager → n8n → Mantis → *resolved*. Requiere provocar una condición real en producción, por ejemplo detener una réplica de Patroni unos minutos.
-- **Aprobación humana del flujo 03** con un informe crítico, que sale con la misma prueba: menos de 2 réplicas en streaming.
-- **Eventos reales del backend**, que llegan después de desplegar `SECURITY_EVENTS_WEBHOOK_URL/SECRET` (release de este cambio).
+Se detuvo la réplica `gymhub_pg_3_prod` (`docker stop`) unos minutos. La app siguió respondiendo 200 con pg-2 de líder y pg-1 de réplica.
+
+| t | Qué pasó |
+|---|---|
+| 0 s | pg-3 detenida |
+| +11 s | Prometheus: `GymHubNodoPatroniCaido` y `GymHubReplicasInsuficientes` en *pending* |
+| +32 s | `GymHubNodoPatroniCaido` en **firing** (regla `up{job="patroni"} == 0`, `for: 30s`) |
+| +64 s | Alertmanager → n8n (flujo 01) → **Mantis #39** "[Prometheus] GymHubNodoPatroniCaido - pg-3:8008" + mail |
+| — | Flujo 03 ejecutado: informe **CRÍTICO** (réplicas en streaming 1 < 2) en Nextcloud + mail "¿Escalar el informe crítico como incidencia?" con links Aprobar / Rechazar; la ejecución quedó **esperando** (nodo *Wait*, vence en 24 h) |
+| — | Clic en **Aprobar** → n8n retomó la ejecución → **Mantis #40** "[n8n] Informe de rendimiento CRÍTICO…", categoría Rendimiento, "Escalada con aprobación humana" |
+| +~1 min | `docker start`: pg-3 volvió **sola como réplica en streaming**, lag 0 |
+| +~4 min | Prometheus resolvió la alerta → Alertmanager mandó el *resolved* → n8n agregó la **nota de cierre en #39** |
+
+Así quedó probado el recorrido completo de una alerta **real**, de *firing* a *resolved*, que estaba pendiente desde SCRUM-76, y la aprobación humana del flujo 03.
+
+**Hallazgo:** el link de aprobación armaba `resumeUrl?decision=…`, pero `resumeUrl` ya trae `?signature=…`. La decisión quedaba pegada a la firma y n8n respondía **401 "Invalid token"**, una protección correcta de n8n. Corregido: la decisión va con `&`. La aprobación de la prueba se hizo con el link bien armado.
+
+#39 y #40 se cerraron en Mantis como prueba controlada.

@@ -2,7 +2,7 @@
 
 ## A. Estado en producción (20/11/2026)
 
-n8n corre en el servidor de producción con **5 flujos activos** que integran **6 componentes**: Prometheus, Alertmanager, Mantis, Nextcloud, el backend y el backup de la base. Todo se configura con `bash infra/n8n/configurar.sh` (idempotente). Evidencias: [evidencias/SCRUM-n8n-produccion](evidencias/SCRUM-n8n-produccion/README.md).
+n8n corre en el servidor de producción con **5 flujos activos** que integran **6 componentes**: Prometheus, Alertmanager, Mantis, Nextcloud, el backend y el backup de la base. Todo se configura con `bash infra/n8n/configurar.sh` (idempotente). Se probó de punta a punta con una **alerta real** (réplica de Patroni detenida → Mantis #39 → nota de cierre al volver) y con la **aprobación humana** del informe crítico (Mantis #40). Evidencias: [evidencias/SCRUM-n8n-produccion](evidencias/SCRUM-n8n-produccion/README.md).
 
 ### A.1 Arquitectura
 
