@@ -86,6 +86,7 @@ Igual que la tabla anterior, cambiando `127.0.0.1` por **`gymhub-servidor.tailec
 | Mantis | http://gymhub-servidor.tailec3350.ts.net:8990/ |
 | n8n | http://gymhub-servidor.tailec3350.ts.net:5679/ |
 | Nextcloud | http://gymhub-servidor.tailec3350.ts.net:8082/ |
+| URL pública vigente del túnel | http://gymhub-servidor.tailec3350.ts.net:2000/quicktunnel (métricas de cloudflared) |
 | Base (pgAdmin/DBeaver) | host `gymhub-servidor.tailec3350.ts.net`, puerto `5436` |
 
 El tráfico viaja cifrado por WireGuard aunque las URL sean `http://`.
