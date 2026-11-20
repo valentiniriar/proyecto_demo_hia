@@ -36,20 +36,21 @@ cp backend/.env.example backend/.env
 
 `DB_NAME`, `DB_USER`, `DB_PASS`, `PGADMIN_DEFAULT_EMAIL` y `PGADMIN_DEFAULT_PASSWORD` son **obligatorias** en `.env` (no versionado): si falta alguna, `docker compose` falla con un mensaje y no arranca. Si tu `.env` es anterior, copiá las variables `PGADMIN_*` desde `.env.example`.
 
-Perfiles disponibles en [`docker-compose.yml`](docker-compose.yml):
+La base es un **cluster PostgreSQL con failover automático** (Patroni + etcd + HAProxy). Qué es, cómo probar que al bajar el maestro otro nodo toma el control solo y cómo se migra producción: [`docs/implementacion-patroni.MD`](docs/implementacion-patroni.MD).
 
-| Perfil | Comando | Servicio | Puerto en el host |
+Perfiles disponibles en [`docker-compose.yml`](docker-compose.yml) (el `-f docker-compose.yml` es necesario porque en la carpeta también está `compose.yaml`):
+
+| Perfil | Comando | Servicios | Puerto en el host |
 |---|---|---|---|
-| `dev` | `docker compose --profile dev up -d` | `db-dev` | `localhost:${DB_PORT:-5433}` |
-| `deploy` | `docker compose --profile deploy up -d` | `db` | Ninguno: solo se accede por la red interna `gymhub_db_net` (host `db`) |
-| `tools` | se agrega al perfil elegido, p. ej. `docker compose --profile dev --profile tools up -d` | `pgadmin` | `127.0.0.1:${PGADMIN_PORT:-5050}` |
-| `adminer` | se agrega al perfil elegido, p. ej. `docker compose --profile dev --profile adminer up -d` | `adminer` | `127.0.0.1:8080` |
+| `dev` | `docker compose -f docker-compose.yml --profile dev up -d` | `etcd`, `pg-1`, `haproxy` (base de 1 nodo) | `localhost:${DB_PORT:-5433}` (líder), `:${DB_REPLICA_PORT:-5434}` (lecturas), `:7000` (estado de HAProxy) |
+| `cluster` | se agrega a `dev`: `... --profile dev --profile cluster up -d` | `pg-2`, `pg-3` (réplicas; failover automático) | — (por HAProxy) |
+| `tools` | se agrega al perfil elegido, p. ej. `... --profile dev --profile tools up -d` | `pgadmin` | `127.0.0.1:${PGADMIN_PORT:-5050}` |
+| `adminer` | se agrega al perfil elegido, p. ej. `... --profile dev --profile adminer up -d` | `adminer` | `127.0.0.1:8080` |
 
-- No levantes `dev` y `deploy` a la vez: comparten el volumen `db_data`.
-- Estado y healthcheck: `docker compose --profile dev ps` tiene que mostrar `healthy`.
-- Reiniciar desde cero (borra los datos): `docker compose --profile dev down -v && docker compose --profile dev up -d`
-- pgAdmin 4 (http://127.0.0.1:5050): `docker compose --profile dev --profile tools up -d`. Espera a que la BD esté `healthy`. Se entra con `PGADMIN_DEFAULT_EMAIL` / `PGADMIN_DEFAULT_PASSWORD` del `.env`, y el servidor "GymHub PostgreSQL (db)" ya viene cargado (la contraseña es `DB_PASS`).
-- Adminer, alternativa liviana (http://127.0.0.1:8080): `docker compose --profile dev --profile adminer up -d`
+- Estado del cluster: `docker exec demo_hia_pg_1 patronictl -c /etc/patroni/patroni.yml list` (en Git Bash, antes `export MSYS_NO_PATHCONV=1`).
+- Reiniciar desde cero (borra los datos): `docker compose -f docker-compose.yml --profile dev --profile cluster down -v && docker compose -f docker-compose.yml --profile dev up -d`
+- pgAdmin 4 (http://127.0.0.1:5050): `docker compose -f docker-compose.yml --profile dev --profile tools up -d`. Espera a que la BD esté `healthy`. Se entra con `PGADMIN_DEFAULT_EMAIL` / `PGADMIN_DEFAULT_PASSWORD` del `.env`, y el servidor "GymHub PostgreSQL (db)" ya viene cargado (la contraseña es `DB_PASS`).
+- Adminer, alternativa liviana (http://127.0.0.1:8080): `docker compose -f docker-compose.yml --profile dev --profile adminer up -d`
   (sistema: PostgreSQL · servidor: `db` · usuario/clave/base: los de tu `.env`)
 
 ## 3. Puesta en Marcha con Docker Compose
@@ -87,13 +88,14 @@ bash infra/mantis/setup.sh
 
 Plan B si falla Internet o el túnel: mostrar la app en `http://localhost:8080` (ver `docs/SCRUM-85-disponibilidad-y-riesgos.md`, sección 6). Documentos de referencia para la defensa: publicación (`docs/10-publicacion-internet.md`), incidencias (`docs/12-gestion-incidencias.md`) y seguridad (`docs/14-informe-seguridad.md`).
 
-### 3.2 Modo Clúster con Alta Disponibilidad y Replicación (E06)
-Para desplegar el clúster completo con nodo réplica en Hot Standby por streaming físico:
+### 3.2 Modo Clúster con Alta Disponibilidad y Failover Automático (E06)
+Cluster Patroni de 3 nodos (1 líder + 2 réplicas por streaming), etcd y HAProxy:
 
 ```bash
 docker compose -f compose.yaml -f compose.dev.yaml --profile cluster up -d
 ```
-- **PostgreSQL Réplica (Solo Lectura):** `localhost:5434`
+- **Líder (escrituras):** `localhost:5433` · **Lecturas:** `localhost:5434` · **Estado de HAProxy:** http://localhost:7000
+- Prueba de failover (bajar el maestro y ver que otro toma el control): `bash database/patroni/failover-demo.sh devb`. Ver [`docs/implementacion-patroni.MD`](docs/implementacion-patroni.MD).
 
 ### 3.3 Modo Producción
 En producción se utilizan imágenes inmutables de GHCR y **ningún puerto de base de datos se expone al exterior**:
@@ -156,7 +158,7 @@ Cargados por `database/02_seed.sql` (**solo desarrollo**). Contraseña de los tr
 Hay un dataset masivo para pruebas de rendimiento: **6.000.000 filas** en cada tabla de datos, `ejercicios` con 200 (catálogo) y `roles` con 3. Respeta todas las FK y es reproducible. Necesita unos 10 GB libres y entre 15 y 30 minutos de carga. Detalle, justificación y advertencias en [`docs/SCRUM-35-dataset-6m.md`](docs/SCRUM-35-dataset-6m.md).
 
 ```bash
-docker compose --profile dev down -v && docker compose --profile dev up -d   # base limpia
+docker compose -f docker-compose.yml --profile dev down -v && docker compose -f docker-compose.yml --profile dev up -d   # base limpia (1 nodo: la carga es más rápida)
 ./database/dataset/cargar.sh                                                 # carga y verificación
 ```
 
@@ -242,7 +244,7 @@ erDiagram
 
 Todas las tablas (salvo `roles`, `usuario_roles` y `rutina_ejercicios`) tienen además `createdAt` y `updatedAt`.
 
-El backend mantiene `sequelize.sync()` al arrancar: si una tabla no existe la crea, pero **no modifica** las existentes. Si se cambia un modelo de Sequelize, hay que reflejar el cambio en `database/01_schema.sql` y recrear la base (`docker compose --profile dev down -v`).
+El backend mantiene `sequelize.sync()` al arrancar: si una tabla no existe la crea, pero **no modifica** las existentes. Si se cambia un modelo de Sequelize, hay que reflejar el cambio en `database/01_schema.sql` y recrear la base (`docker compose -f docker-compose.yml --profile dev --profile cluster down -v`).
 
 ## Notas para el equipo
 

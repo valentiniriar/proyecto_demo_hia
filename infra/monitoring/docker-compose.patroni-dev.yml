@@ -1,0 +1,16 @@
+# Monitoreo en modo DESARROLLO con el cluster Patroni (docs/implementacion-patroni.MD).
+# Prometheus entra a la red de la base de desarrollo (gymhub_db_net) para leer las métricas de cada
+# nodo (pg-1:8008, pg-2:8008, pg-3:8008). La base de desarrollo tiene que estar levantada antes.
+#
+#   docker compose -f infra/monitoring/docker-compose.yml -f infra/monitoring/docker-compose.patroni-dev.yml \
+#     --env-file infra/monitoring/.env up -d
+#
+# En producción no se usa: docker-compose.prod.yml ya conecta Prometheus a gymhub_prod_db_net.
+services:
+  prometheus:
+    networks: [monitoring, devdb]
+
+networks:
+  devdb:
+    external: true
+    name: gymhub_db_net

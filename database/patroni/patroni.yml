@@ -1,0 +1,62 @@
+# Configuración común a los 3 nodos de PostgreSQL (pg-1, pg-2, pg-3).
+#
+# Lo que cambia por nodo o por entorno (nombre, direcciones, usuarios y contraseñas) NO va acá: Patroni lo
+# lee de variables de entorno que define cada compose (PATRONI_NAME, PATRONI_SCOPE, PATRONI_ETCD3_HOSTS,
+# PATRONI_SUPERUSER_*, PATRONI_REPLICATION_*, PATRONI_REWIND_*, PATRONI_RESTAPI_*, *_CONNECT_ADDRESS).
+#
+# Cómo decide quién es el líder: el líder renueva cada loop_wait segundos una clave con vencimiento (ttl)
+# en etcd. Si deja de hacerlo (el nodo se cayó), la clave vence y la réplica más actualizada la toma,
+# se promueve y pasa a ser el nuevo líder. HAProxy le pregunta a cada nodo por su API REST (:8008) quién
+# es líder y manda las conexiones ahí.
+
+restapi:
+  listen: 0.0.0.0:8008
+  # connect_address y usuario/clave (para switchover y otros endpoints de escritura) llegan por entorno.
+
+postgresql:
+  listen: 0.0.0.0:5432
+  data_dir: /var/lib/postgresql/data
+  # Misma configuración de siempre (memoria, pg_stat_statements, logging de SCRUM-39). Patroni la incluye
+  # y le suma los parámetros que necesita para la replicación (abajo, en bootstrap.dcs).
+  custom_conf: /etc/postgresql/postgresql.conf
+  # Si el viejo líder no puede rebobinarse con pg_rewind, Patroni borra sus datos y lo clona de nuevo
+  # desde el líder actual: la reincorporación es siempre automática.
+  remove_data_directory_on_rewind_failure: true
+  remove_data_directory_on_diverged_timelines: true
+  pg_hba:
+    - local all all trust
+    - host replication all 0.0.0.0/0 scram-sha-256
+    - host all all 0.0.0.0/0 scram-sha-256
+
+bootstrap:
+  # Parámetros del cluster: se guardan en etcd la primera vez y los comparten todos los nodos.
+  dcs:
+    ttl: 20                          # segundos que vive el lock de líder sin renovarse
+    loop_wait: 5                     # cada cuánto cada nodo revisa el estado del cluster
+    retry_timeout: 5                 # cuánto se reintenta contra etcd/PostgreSQL antes de rendirse
+    maximum_lag_on_failover: 1048576 # una réplica atrasada más de 1 MB de WAL no puede ser líder
+    # Hay un solo etcd: si se cae, sin esto el líder pasa a solo lectura. Con failsafe_mode el líder sigue
+    # aceptando escrituras mientras pueda hablar con TODAS las réplicas por su API REST.
+    failsafe_mode: true
+    postgresql:
+      use_pg_rewind: true            # el viejo líder vuelve como réplica sin clonar todo
+      use_slots: true                # Patroni crea y borra los replication slots de cada réplica
+      parameters:
+        wal_level: replica
+        hot_standby: 'on'
+        wal_log_hints: 'on'          # requisito de pg_rewind (la base no tiene data checksums)
+        max_wal_senders: 10
+        max_replication_slots: 10
+        max_connections: 100
+        wal_keep_size: 512MB
+  # Solo para un cluster NUEVO (volumen vacío). Si el volumen ya tiene datos, Patroni los adopta.
+  initdb:
+    - encoding: UTF8
+    - data-checksums
+  post_bootstrap: /scripts/post-bootstrap.sh
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

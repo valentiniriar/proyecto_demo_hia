@@ -3,6 +3,41 @@
 # Uso para Desarrollo: docker compose -f compose.yaml -f compose.dev.yaml up -d
 # Uso para Producción: docker compose -f compose.yaml -f compose.prod.yaml up -d
 
+x-patroni-node: &patroni-node
+  build:
+    context: ./database/patroni
+  image: gymhub-patroni:16
+  restart: unless-stopped
+  shm_size: 256mb   # SCRUM-39: /dev/shm por defecto (64 MB) no alcanza para hash join paralelo
+  depends_on:
+    etcd:
+      condition: service_started
+  environment: &patroni-env
+    PATRONI_SCOPE: ${PATRONI_SCOPE:-gymhub}
+    PATRONI_ETCD3_HOSTS: etcd:2379
+    PATRONI_SUPERUSER_USERNAME: ${DB_USER:-demo_hia}
+    PATRONI_SUPERUSER_PASSWORD: ${DB_PASS:-demo_hia_pass}
+    PATRONI_REPLICATION_USERNAME: ${POSTGRES_REPLICA_USER:-replicator}
+    PATRONI_REPLICATION_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-replicator_pass}
+    PATRONI_RESTAPI_USERNAME: ${PATRONI_RESTAPI_USERNAME:-patroni}
+    PATRONI_RESTAPI_PASSWORD: ${PATRONI_RESTAPI_PASSWORD:-patroni_pass}
+    DB_NAME: ${DB_NAME:-demo_hia}
+  networks:
+    - db_net
+  healthcheck:
+    # 200 si PostgreSQL está corriendo en este nodo (sea líder o réplica).
+    test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:8008/health"]
+    interval: 5s
+    timeout: 5s
+    retries: 10
+    start_period: 30s
+  deploy:
+    resources:
+      limits:
+        cpus: '1.5'
+        # Igual en los 3 nodos: cualquiera puede pasar a ser líder.
+        memory: 1280M
+
 services:
   # FRONTEND (Nginx sirviendo SPA compilada de Angular y proxy reverso /api/)
   frontend:
@@ -19,7 +54,7 @@ services:
   backend:
     restart: unless-stopped
     depends_on:
-      db:
+      haproxy:
         condition: service_healthy
     networks:
       - frontend_net
@@ -30,70 +65,104 @@ services:
           cpus: '2.0'
           memory: 1024M
 
-  # BASE DE DATOS PRIMARIA (PostgreSQL 16)
-  db:
-    image: postgres:16-alpine
-    container_name: demo_hia_db
-    restart: unless-stopped
-    shm_size: 256mb   # SCRUM-39: /dev/shm por defecto (64 MB) no alcanza para hash join paralelo
-    environment:
-      POSTGRES_DB: ${DB_NAME:-demo_hia}
-      POSTGRES_USER: ${DB_USER:-demo_hia}
-      POSTGRES_PASSWORD: ${DB_PASS:-demo_hia_pass}
-      POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER:-replicator}
-      POSTGRES_REPLICA_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-replicator_pass}
-    volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
-      - ./database/replication/setup-primary.sh:/docker-entrypoint-initdb.d/03_setup_primary.sh:ro
-      - ./database/config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
-    networks:
-      - db_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1536M
+  # BASE DE DATOS: cluster PostgreSQL 16 con failover automático (Patroni + etcd + HAProxy).
+  # Ver docs/implementacion-patroni.MD. La app nunca habla con un nodo: habla con HAProxy ("db").
+  #   db:5432 → siempre el líder (escrituras)      db:5433 → réplicas o líder (lecturas)
 
-  # NODO RÉPLICA STANDBY (Solo Lectura)
-  db-replica:
-    image: postgres:16-alpine
-    container_name: demo_hia_db_replica
-    profiles: ["cluster", "prod"]
+  # etcd guarda quién es el líder (lock con vencimiento). Un solo nodo para ahorrar recursos.
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.21
+    container_name: gymhub_etcd
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      PRIMARY_HOST: db
-      PRIMARY_PORT: 5432
-      POSTGRES_REPLICA_USER: ${POSTGRES_REPLICA_USER:-replicator}
-      POSTGRES_REPLICA_PASSWORD: ${POSTGRES_REPLICA_PASSWORD:-replicator_pass}
-      REPLICATION_SLOT: standby_slot_1
-      PGDATA: /var/lib/postgresql/data
+    command:
+      - etcd
+      - --name=etcd
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://etcd:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://etcd:2380
+      - --initial-cluster=etcd=http://etcd:2380
     volumes:
-      - db_replica_data:/var/lib/postgresql/data
-      - ./database/replication/entrypoint-replica.sh:/scripts/entrypoint-replica.sh:ro
-    entrypoint: ["/scripts/entrypoint-replica.sh"]
+      - etcd_data:/etcd-data
     networks:
       - db_net
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_REPLICA_USER} -h 127.0.0.1"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1024M
+          cpus: '0.5'
+          memory: 128M
+
+  # pg-1 usa el volumen de datos de siempre (db_data): si tiene datos, Patroni los adopta.
+  # pg-2 y pg-3 arrancan vacíos y Patroni los clona del líder.
+  pg-1:
+    <<: *patroni-node
+    container_name: gymhub_pg_1
+    environment:
+      <<: *patroni-env
+      PATRONI_NAME: pg-1
+      PATRONI_RESTAPI_CONNECT_ADDRESS: pg-1:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: pg-1:5432
+    volumes:
+      - ./database/patroni/patroni.yml:/etc/patroni/patroni.yml:ro
+      - ./database/config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./database/01_schema.sql:/scripts/sql/01_schema.sql:ro
+      - ./database/02_seed.sql:/scripts/sql/02_seed.sql:ro
+      - db_data:/var/lib/postgresql/data
+
+  pg-2:
+    <<: *patroni-node
+    container_name: gymhub_pg_2
+    profiles: ["cluster", "prod"]
+    environment:
+      <<: *patroni-env
+      PATRONI_NAME: pg-2
+      PATRONI_RESTAPI_CONNECT_ADDRESS: pg-2:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: pg-2:5432
+    volumes:
+      - ./database/patroni/patroni.yml:/etc/patroni/patroni.yml:ro
+      - ./database/config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./database/01_schema.sql:/scripts/sql/01_schema.sql:ro
+      - ./database/02_seed.sql:/scripts/sql/02_seed.sql:ro
+      - db_replica_data:/var/lib/postgresql/data
+
+  pg-3:
+    <<: *patroni-node
+    container_name: gymhub_pg_3
+    profiles: ["cluster", "prod"]
+    environment:
+      <<: *patroni-env
+      PATRONI_NAME: pg-3
+      PATRONI_RESTAPI_CONNECT_ADDRESS: pg-3:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: pg-3:5432
+    volumes:
+      - ./database/patroni/patroni.yml:/etc/patroni/patroni.yml:ro
+      - ./database/config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./database/01_schema.sql:/scripts/sql/01_schema.sql:ro
+      - ./database/02_seed.sql:/scripts/sql/02_seed.sql:ro
+      - db_replica2_data:/var/lib/postgresql/data
+
+  # Punto de entrada único: alias de red "db", así backup, pgAdmin y el puente siguen usando db:5432.
+  haproxy:
+    image: haproxy:3.2.4-alpine
+    container_name: gymhub_haproxy
+    restart: unless-stopped
+    volumes:
+      - ./database/patroni/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      db_net:
+        aliases:
+          - db
+    healthcheck:
+      test: ["CMD-SHELL", "haproxy -c -q -f /usr/local/etc/haproxy/haproxy.cfg"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
 
   # SERVICIO DE BACKUPS AUTOMÁTICOS (SCRUM-37)
   backup:
@@ -104,7 +173,7 @@ services:
     profiles: ["backups", "tools", "prod"]
     restart: unless-stopped
     depends_on:
-      db:
+      haproxy:
         condition: service_healthy
     environment:
       DB_HOST: db
@@ -134,6 +203,10 @@ volumes:
     name: gymhub_db_data
   db_replica_data:
     name: gymhub_db_replica_data
+  db_replica2_data:
+    name: gymhub_db_replica2_data
+  etcd_data:
+    name: gymhub_etcd_data
   db_backups:
     name: gymhub_db_backups
   pgadmin_data:

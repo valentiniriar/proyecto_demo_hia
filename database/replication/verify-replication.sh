@@ -1,8 +1,11 @@
 #!/bin/sh
 set -e
 
+# Con Patroni: "db" es HAProxy (puerto 5432 = siempre el líder). REPLICA_HOST tiene que ser un nodo que hoy
+# sea réplica (ver "patronictl list"); se apunta al nodo directo y no a db:5433, porque ese puerto también
+# puede mandar la consulta al líder.
 PRIMARY_HOST="${PRIMARY_HOST:-db}"
-REPLICA_HOST="${REPLICA_HOST:-db-replica}"
+REPLICA_HOST="${REPLICA_HOST:-pg-2}"
 PRIMARY_PORT="${PRIMARY_PORT:-5432}"
 REPLICA_PORT="${REPLICA_PORT:-5432}"
 DB_USER="${DB_USER:-demo_hia}"

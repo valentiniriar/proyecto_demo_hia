@@ -39,34 +39,61 @@ groups:
         annotations:
           summary: 'PostgreSQL primario no está disponible'
           description: 'postgres-exporter indica pg_up=0 durante 1 minuto.'
-      # SCRUM-68: solo detecta; nunca ejecuta failover automatico.
-      - alert: GymHubReplicaDesconectada
-        expr: up{job="postgres-replica"} == 0 or absent(up{job="postgres-replica"})
-        for: 2m
+      # Cluster Patroni (docs/implementacion-patroni.MD). El failover lo hace Patroni solo; estas alertas
+      # avisan qué pasó y si el cluster quedó sano. Métricas: API REST de cada nodo (job "patroni").
+      - alert: GymHubNodoPatroniCaido
+        expr: up{job="patroni"} == 0
+        for: 30s
+        labels:
+          severity: warning
+          component: database-cluster
+        annotations:
+          summary: 'Nodo {{ $labels.instance }} del cluster PostgreSQL caído'
+          description: 'Prometheus no llega a la API de Patroni del nodo. Si era el líder, otro nodo toma el control solo.'
+      - alert: GymHubSinLider
+        expr: sum(patroni_primary{job="patroni"}) < 1 or absent(patroni_primary{job="patroni"})
+        for: 30s
         labels:
           severity: critical
-          component: database-replica
+          component: database-cluster
         annotations:
-          summary: 'Exporter o nodo de replica PostgreSQL no disponible'
-          description: 'El target de la replica no responde; verificar standby y conectividad.'
-      - alert: GymHubReplicaNoEsStandby
-        expr: pg_replication_is_replica{job="postgres-replica"} == 0
-        for: 2m
+          summary: 'El cluster PostgreSQL no tiene líder'
+          description: 'Ningún nodo acepta escrituras. Revisar etcd y los nodos (patronictl list).'
+      - alert: GymHubDosLideres
+        expr: sum(patroni_primary{job="patroni"}) > 1
+        for: 10s
         labels:
           severity: critical
-          component: database-replica
+          component: database-cluster
         annotations:
-          summary: 'La instancia monitoreada no se identifica como standby'
-          description: 'Revisar configuracion de replica sin ejecutar promocion automatica.'
+          summary: 'Más de un líder en el cluster PostgreSQL (split-brain)'
+          description: 'Dos nodos se reportan como primario. Intervención inmediata.'
+      - alert: GymHubFailoverOcurrido
+        expr: changes(max(patroni_postgres_timeline{job="patroni"})[10m:15s]) > 0
+        labels:
+          severity: info
+          component: database-cluster
+        annotations:
+          summary: 'Cambió el líder del cluster PostgreSQL (failover o switchover)'
+          description: 'Patroni promovió otro nodo en los últimos 10 minutos. Verificar con patronictl list.'
+      - alert: GymHubReplicasInsuficientes
+        expr: sum(patroni_replica{job="patroni"} * on(instance) patroni_postgres_streaming{job="patroni"}) < 2
+        for: 5m
+        labels:
+          severity: warning
+          component: database-cluster
+        annotations:
+          summary: 'Menos de 2 réplicas replicando'
+          description: 'El cluster tiene menos réplicas en streaming de las esperadas (perfil cluster / producción).'
       - alert: GymHubReplicaLagAlto
-        expr: pg_replication_lag_seconds{job="postgres-replica"} > 30
+        expr: (scalar(max(patroni_xlog_location{job="patroni"})) - (patroni_xlog_replayed_location{job="patroni"} and on(instance) patroni_replica{job="patroni"} == 1)) > 16777216
         for: 3m
         labels:
           severity: warning
-          component: database-replica
+          component: database-cluster
         annotations:
-          summary: 'Lag de replica PostgreSQL superior a 30 s'
-          description: 'Umbral conservador del laboratorio; confirmar con pg_stat_replication.'
+          summary: 'Réplica {{ $labels.instance }} atrasada más de 16 MB de WAL'
+          description: 'Con más de 1 MB de atraso Patroni no la elige como líder en un failover.'
       - alert: GymHubReiniciosObservadosCadvisor
         expr: sum(changes(container_start_time_seconds{job="cadvisor"}[10m])) > 2
         for: 1m

@@ -4,7 +4,7 @@ Secretos y estado del **servidor de producción**. Todo lo que hay acá, salvo e
 
 | Archivo | Qué contiene | Quién lo usa |
 |---|---|---|
-| `.env.prod` | `DB_NAME`, `DB_USER`, `DB_PASS`, `POSTGRES_REPLICA_USER`, `POSTGRES_REPLICA_PASSWORD`, `JWT_SECRET`, configuración de backups y `CLOUDFLARE_TUNNEL_TOKEN` (opcional) | `scripts/deploy.sh` y el CD |
+| `.env.prod` | `DB_NAME`, `DB_USER`, `DB_PASS`, `POSTGRES_REPLICA_USER`, `POSTGRES_REPLICA_PASSWORD`, `PATRONI_RESTAPI_PASSWORD`, `JWT_SECRET`, configuración de backups y `CLOUDFLARE_TUNNEL_TOKEN` (opcional) | `scripts/deploy.sh` y el CD |
 | `credenciales-produccion.txt` | Contraseñas de los usuarios de la app en producción (`admin`, `entrenador`; `socio` usa la de demostración) | Personas |
 | `version-desplegada.txt` | SHA de la versión que está en producción | `scripts/deploy.sh` (rollback automático) |
 | `historial-despliegues.log` | Una línea por despliegue: fecha, SHA y resultado (`OK`, `FALLÓ`, `ROLLBACK OK`) | `scripts/deploy.sh --estado` |
@@ -20,6 +20,8 @@ DB_USER=gymhub
 DB_PASS=<aleatoria>
 POSTGRES_REPLICA_USER=replicator
 POSTGRES_REPLICA_PASSWORD=<aleatoria>
+PATRONI_RESTAPI_USERNAME=patroni
+PATRONI_RESTAPI_PASSWORD=<aleatoria>
 JWT_SECRET=<aleatoria, 48+ bytes>
 BACKUP_CRON_SCHEDULE=0 3 * * *
 BACKUP_RETENTION_DAYS=7

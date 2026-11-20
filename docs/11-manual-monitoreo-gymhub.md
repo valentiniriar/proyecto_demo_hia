@@ -43,6 +43,9 @@ No subir `.env`, `Authorization`, tokens, capturas de 2FA ni credenciales. El sc
 
 ## SCRUM-66/67/68 — exporter de réplica independiente
 
+> [!IMPORTANT]
+> **Reemplazado.** Con el cluster Patroni ya no hay una réplica fija: cualquier nodo puede ser líder o réplica. El exporter de réplica y `docker-compose.replica.yml` se eliminaron; Prometheus lee directamente las métricas de Patroni de cada nodo (job `patroni`, `pg-1..3:8008`) y las alertas `GymHubReplicaDesconectada`/`GymHubReplicaNoEsStandby` se reemplazaron por `GymHubNodoPatroniCaido`, `GymHubSinLider`, `GymHubDosLideres`, `GymHubFailoverOcurrido`, `GymHubReplicasInsuficientes` y `GymHubReplicaLagAlto`. Ver [`implementacion-patroni.MD`](implementacion-patroni.MD), sección 6. Lo que sigue queda como registro de SCRUM-66/67/68.
+
 El laboratorio inicializa un **standby externo al Compose del monitoreo**, denominado
 `gymhub-replica-verificada`, en la red privada `proyecto_demo_hia-main_default`.
 El primario existente `demo_hia_db` no se recrea ni se reinicia.
