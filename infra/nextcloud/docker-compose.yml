@@ -50,8 +50,9 @@ services:
       # Instalación automática en el primer arranque (después la contraseña del admin vive en la BD).
       NEXTCLOUD_ADMIN_USER: admin
       NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASS:?Definir NEXTCLOUD_ADMIN_PASS}
-      # localhost/127.0.0.1: esta PC · nextcloud: n8n por la red tools · *.ts.net: Tailscale (SCRUM-61).
-      NEXTCLOUD_TRUSTED_DOMAINS: localhost 127.0.0.1 nextcloud gymhub-servidor.tailec3350.ts.net
+      # localhost/127.0.0.1: esta PC · nextcloud: n8n por la red tools · *.ts.net y 100.65.22.99: Tailscale (SCRUM-61).
+      # Solo se aplica al instalar; en una instalación existente: occ config:system:set trusted_domains N --value=...
+      NEXTCLOUD_TRUSTED_DOMAINS: localhost 127.0.0.1 nextcloud gymhub-servidor.tailec3350.ts.net 100.65.22.99
       PHP_UPLOAD_LIMIT: 512M
       PHP_MEMORY_LIMIT: 512M
       TZ: America/Argentina/Jujuy

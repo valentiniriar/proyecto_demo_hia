@@ -96,7 +96,7 @@ Historial completo de las 18 incidencias: [`evidencias/SCRUM-72/historial-mantis
 
 ## 7. Instancia de producción (servidor del equipo)
 
-El registro de arriba se hizo en la instancia de Mantis de un integrante. El 20/11/2026 se **migró al Mantis del servidor de producción** (`gymhub-mantis`, accesible por Tailscale en `http://gymhub-servidor.tailec3350.ts.net:8990`), que es el que se muestra en la demo.
+El registro de arriba se hizo en la instancia de Mantis de un integrante. El 20/11/2026 se **migró al Mantis del servidor de producción** (`gymhub-mantis`, accesible por Tailscale en `http://100.65.22.99:8990`), que es el que se muestra en la demo.
 
 - **Cómo:** [`infra/mantis/cargar-registro.js`](../infra/mantis/cargar-registro.js) lee [`infra/mantis/registro-incidencias.json`](../infra/mantis/registro-incidencias.json) (archivo, responsable, PR, verificación y estado de cada incidencia) y recorre el ciclo completo por la API REST: creación → asignación → resolución con el PR → nota de verificación → cierre. Es idempotente (saltea las que ya existen), así que sirve para recrear el registro en cualquier instancia.
 - **Qué se cargó:** las 14 incidencias del relevamiento y de SCRUM-81, más **3 incidencias reales de producción** detectadas al operar el servidor:

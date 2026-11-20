@@ -327,14 +327,14 @@ Ningún servicio escucha en `0.0.0.0`: **todo está en `127.0.0.1`**, es decir, 
 | Estado de HAProxy (qué nodo de Patroni es líder) | http://localhost:7000 | `:7000` | ❌ |
 | Base de producción | `localhost:5436` | `:5436` | ❌ |
 
-En la tailnet, el host es `gymhub-servidor.tailec3350.ts.net`. Por ejemplo, Grafana queda en `http://gymhub-servidor.tailec3350.ts.net:3001/`.
+En la tailnet, el host es `gymhub-servidor.tailec3350.ts.net`. Por ejemplo, Grafana queda en `http://100.65.22.99:3001/`.
 
 **Para que un integrante tenga acceso:**
 1. Instalar Tailscale ([tailscale.com/download](https://tailscale.com/download)) y pedirle a Francisco, que administra la tailnet, que lo invite.
 2. Pedirle sus credenciales **por privado**. Cada uno tiene su usuario en Nextcloud y Mantis. Las credenciales están solo en el servidor (`produccion/CREDENCIALES.txt` e `infra/*/.env`), **nunca en el repo, en Jira ni en el grupo de chat**.
 3. Para la base de producción (pgAdmin o DBeaver): host `gymhub-servidor.tailec3350.ts.net`, puerto `5436`.
 
-La URL de respaldo de Cloudflare cambia cada vez que se reinicia el túnel. La vigente se consulta desde cualquier dispositivo de la tailnet en `http://gymhub-servidor.tailec3350.ts.net:2000/quicktunnel` (devuelve `{"hostname": "…trycloudflare.com"}`).
+La URL de respaldo de Cloudflare cambia cada vez que se reinicia el túnel. La vigente se consulta desde cualquier dispositivo de la tailnet en `http://100.65.22.99:2000/quicktunnel` (devuelve `{"hostname": "…trycloudflare.com"}`).
 
 ---
 
