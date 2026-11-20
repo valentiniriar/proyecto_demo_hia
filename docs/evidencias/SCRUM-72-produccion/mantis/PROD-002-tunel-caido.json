@@ -1,0 +1,10 @@
+{
+  "summary": "PROD-002: la web pública se cae y no vuelve sola (túnel rápido de Cloudflare: \"Unauthorized: Tunnel not found\")",
+  "category": "Infraestructura",
+  "severity": "major",
+  "priority": "urgent",
+  "description": "El 19/11 la URL pública (*.trycloudflare.com) dejó de responder dos veces. La conexión QUIC del túnel se cortaba por inactividad de la red del servidor; al reconectar, Cloudflare ya había borrado el túnel rápido y cloudflared quedaba reintentando para siempre con \"Unauthorized: Tunnel not found\". Además, cada reinicio cambiaba la URL.\n\nDetectada por Francisco Paredes al probar el acceso externo.",
+  "steps_to_reproduce": "1. docker logs gymhub_cloudflared_rapido | grep -E 'no recent network activity|Tunnel not found'\n2. curl https://<url-del-tunel>/api/health → no resuelve DNS (000).",
+  "additional_information": "Jira: SCRUM-57 / SCRUM-60 · PR: #87 (túnel por HTTP/2 + scripts/vigilar-tunel.sh), #98 (URL fija con Tailscale Funnel)",
+  "tags": ["SCRUM-57", "SCRUM-60", "produccion", "disponibilidad"]
+}
