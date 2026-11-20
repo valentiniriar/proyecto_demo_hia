@@ -2,7 +2,7 @@ const Usuario = require('../models/usuario.model');
 const Rol = require('../models/rol.model');
 const Tarifa = require('../models/tarifa.model');
 const UsuarioRol = require('../models/usuarioRol.model');
-const { fn, col } = require('sequelize');
+const { fn, col, cast } = require('sequelize');
 
 const dashboardCtrl = {};
 
@@ -11,11 +11,14 @@ dashboardCtrl.getStats = async (req, res) => {
         const usuariosActivos = await Usuario.count({ where: { estado: true } });
         const usuariosInactivos = await Usuario.count({ where: { estado: false } });
 
-        const tarifasPagadas = await Tarifa.findAll({ 
+        // SUM en la base: antes se traían todas las tarifas pagadas (millones de filas) para sumarlas en JS.
+        // precio es VARCHAR: se castea a NUMERIC para sumar.
+        const [{ total }] = await Tarifa.findAll({
             where: { pagado: true, activo: true },
-            attributes: ['precio']
+            attributes: [[fn('SUM', cast(col('precio'), 'NUMERIC')), 'total']],
+            raw: true
         });
-        const ingresosTotales = tarifasPagadas.reduce((sum, t) => sum + Number(t.precio), 0);
+        const ingresosTotales = Number(total) || 0;
 
         const roles = await Rol.findAll({
             attributes: ['id', 'nombre'],

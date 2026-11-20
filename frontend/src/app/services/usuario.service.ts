@@ -1,6 +1,6 @@
 import { environment } from '../../environments/environment';
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { LoginService } from './login.service';
 
@@ -22,12 +22,14 @@ export class UsuarioService {
     };
   }
 
-  public getUsuarios(): Observable<any> {
-    return this._http.get(this.hostBase, this.getAuthHeaders());
+  public getUsuarios(page: number = 1): Observable<any> {
+    return this._http.get(this.hostBase, { ...this.getAuthHeaders(), params: new HttpParams().set('page', page) });
   }
 
-  public getSocios(): Observable<any> {
-    return this._http.get(this.hostBase + 'socios/list', this.getAuthHeaders());
+  // q: DNI del socio (para los buscadores de los combos). Sin q devuelve los 20 socios más recientes.
+  public getSocios(q?: string): Observable<any> {
+    const params = q ? new HttpParams().set('q', q) : new HttpParams();
+    return this._http.get(this.hostBase + 'socios/list', { ...this.getAuthHeaders(), params });
   }
 
   public updateUsuario(dni: string, datos: any): Observable<any> {

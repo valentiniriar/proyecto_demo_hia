@@ -7,11 +7,13 @@ import { PagoService } from '../../services/pago.service';
 import { MercadoPagoService } from '../../services/mercado-pago.service';
 import { Tarifa } from '../../models/tarifa.model';
 import { Suscripcion } from '../../models/suscripcion.model';
+import { Pagina } from '../../models/pagina.model';
+import { PaginadorComponent } from '../paginador/paginador.component';
 
 @Component({
   selector: 'app-tarifas-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, PaginadorComponent],
   templateUrl: './tarifas-list.component.html',
   styleUrl: './tarifas-list.component.css'
 })
@@ -19,6 +21,8 @@ export class TarifasListComponent implements OnInit {
 
   tarifas: Tarifa[] = [];
   suscripciones: Suscripcion[] = [];
+  page: number = 1;
+  hasMore: boolean = false;
   cargando: boolean = true;
   mensajeExito: string = '';
   mensajeError: string = '';
@@ -55,18 +59,36 @@ export class TarifasListComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.cargarDatos();
+    this.buscarSuscripciones();
+    this.cargarTarifas();
   }
 
-  cargarDatos(): void {
+  cargarTarifas(page: number = this.page): void {
     this.cargando = true;
-    this.suscripcionService.getSuscripciones().subscribe((resSusc: any) => {
-      this.suscripciones = resSusc;
-      this.tarifaService.getTarifas().subscribe((resTar: any) => {
-        this.tarifas = resTar;
+    this.tarifaService.getTarifas(page).subscribe({
+      next: (res: Pagina<Tarifa>) => {
+        this.tarifas = res.items;
+        this.page = res.page;
+        this.hasMore = res.hasMore;
         this.cargando = false;
         this.cdr.detectChanges();
-      });
+      },
+      error: () => {
+        this.cargando = false;
+        this.mensajeError = 'Error al cargar las tarifas.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  // Combo de suscripciones: hay millones, así que se busca por id de suscripción o DNI del socio
+  // (sin búsqueda, las 20 más recientes).
+  buscarSuscripciones(q: string = ''): void {
+    this.suscripcionService.getSuscripciones(1, q.trim()).subscribe({
+      next: (res: Pagina<Suscripcion>) => {
+        this.suscripciones = res.items;
+        this.cdr.detectChanges();
+      }
     });
   }
 
@@ -109,7 +131,7 @@ export class TarifasListComponent implements OnInit {
       next: (response: any) => {
         if (response.status === '1') {
           this.mensajeExito = 'Tarifa generada con éxito.';
-          this.cargarDatos();
+          this.cargarTarifas();
         } else { this.mensajeError = response.msg; }
         this.cdr.detectChanges();
       }
@@ -123,7 +145,7 @@ export class TarifasListComponent implements OnInit {
       next: (response: any) => {
         if (response.status === '1') {
           this.mensajeExito = 'Tarifa anulada correctamente.';
-          this.cargarDatos();
+          this.cargarTarifas();
         }
         this.cdr.detectChanges();
       },
@@ -160,7 +182,7 @@ export class TarifasListComponent implements OnInit {
       next: (response: any) => {
         if (response.status === '1') {
           this.mensajeExito = 'Pago registrado con éxito. La tarifa se marcó como pagada.';
-          this.cargarDatos();
+          this.cargarTarifas();
         } else { this.mensajeError = response.msg; }
         this.cdr.detectChanges();
       },

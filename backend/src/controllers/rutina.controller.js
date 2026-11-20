@@ -2,6 +2,8 @@ const Rutina    = require('./../../src/models/rutina.model');
 const Ejercicio = require('./../../src/models/ejercicio.model');
 const Usuario   = require('./../../src/models/usuario.model');
 const { sendRutinaNotification } = require('../services/email.service');
+const { Op, literal } = require('sequelize');
+const { leerPaginacion, opcionesConsulta, armarPagina } = require('../utils/paginacion');
 
 const rutinaCtrl = {}; 
 
@@ -50,25 +52,36 @@ rutinaCtrl.getRutinas = async (req, res) => {
     const whereClause = {};
 
     if (idUsuario) whereClause.usuarioId = idUsuario;
-    
-    const rutinas = await Rutina.findAll({
+    // El filtro por ejercicio va como subconsulta (y no como where del include) para que el LIMIT cuente
+    // rutinas y no filas del JOIN con rutina_ejercicios.
+    if (idEjercicio) {
+        if (!/^\d+$/.test(String(idEjercicio))) {
+            return res.status(400).json({ status: '0', msg: 'El id de ejercicio debe ser numérico.' });
+        }
+        whereClause.id = {
+            [Op.in]: literal(`(SELECT id_rutina FROM rutina_ejercicios WHERE id_ejercicio = ${Number(idEjercicio)})`)
+        };
+    }
+
+    const paginacion = leerPaginacion(req);
+    const filas = await Rutina.findAll({
         include: [
             {
-                model: Ejercicio, 
-                as: 'ejercicios', 
+                model: Ejercicio,
+                as: 'ejercicios',
                 attributes: ['id', 'nombre', 'descripcion', 'youtube_url', 'activo'],
-                through: { attributes: [] },
-                ...(idEjercicio ? { where: { id: idEjercicio } } : {})
+                through: { attributes: [] }
             },
             {
                 model: Usuario, 
                 as: 'usuario', 
-                attributes: ['id', 'nombre', 'apellido', 'email']
+                attributes: ['id', 'nombre', 'apellido', 'email', 'dni']
             }
         ], 
-        where: whereClause
+        where: whereClause,
+        ...opcionesConsulta(paginacion)
     });
-    res.json(rutinas); 
+    res.json(armarPagina(filas, paginacion));
   } catch (error) { 
     res.status(500).json({ status: '0', msg: 'Error al obtener las rutinas.' }); 
   } 

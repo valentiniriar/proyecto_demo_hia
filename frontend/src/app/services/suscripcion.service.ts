@@ -1,6 +1,6 @@
 import { environment } from '../../environments/environment';
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { LoginService } from './login.service';
 
@@ -22,8 +22,11 @@ export class SuscripcionService {
     };
   }
 
-  public getSuscripciones(): Observable<any> {
-    return this._http.get(this.hostBase, this.getAuthHeaders());
+  // q: id de suscripción o DNI del socio (para el buscador del combo de tarifas).
+  public getSuscripciones(page: number = 1, q?: string): Observable<any> {
+    let params = new HttpParams().set('page', page);
+    if (q) params = params.set('q', q);
+    return this._http.get(this.hostBase, { ...this.getAuthHeaders(), params });
   }
 
   public createSuscripcion(datos: any): Observable<any> {

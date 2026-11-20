@@ -3,6 +3,7 @@ const { validationResult } = require('express-validator');
 const Usuario = require('./../../src/models/usuario.model');
 const UsuarioRol = require('./../../src/models/usuarioRol.model');
 const Rol = require('./../../src/models/rol.model');
+const { leerPaginacion, opcionesConsulta, armarPagina, leerBusqueda } = require('../utils/paginacion');
 const usuarioCtrl = {};
 
 // Alta de nuevo usuario
@@ -41,10 +42,13 @@ usuarioCtrl.createUsuario = async (req, res) => {
 // Obtener todos los usuarios
 usuarioCtrl.getUsuarios = async (req, res) => {
     try {
-        const usuarios = await Usuario.findAll({
-            attributes: { exclude: ['password_hash', 'createdAt', 'updatedAt'] }
+        const paginacion = leerPaginacion(req);
+        const filas = await Usuario.findAll({
+            attributes: { exclude: ['password_hash', 'createdAt', 'updatedAt'] },
+            ...opcionesConsulta(paginacion)
         });
-        res.json({status: '1', msg: 'Usuarios obtenidos correctamente.', usuarios});
+        const { items, ...pagina } = armarPagina(filas, paginacion);
+        res.json({status: '1', msg: 'Usuarios obtenidos correctamente.', usuarios: items, ...pagina});
     } catch (error) {
         console.error(error);
         res.status(500).json({status: '0', msg: 'Error al obtener los usuarios'});
@@ -145,8 +149,16 @@ usuarioCtrl.activeUsuario = async (req, res) => {
 // Obtener solo los usuarios que son Socios
 usuarioCtrl.getSocios = async (req, res) => {
     try {
-        const socios = await Usuario.findAll({
-            where: { estado: true },
+        const paginacion = leerPaginacion(req);
+        // ?q= (combos de suscripciones y rutinas): DNI exacto, que tiene índice único. No se busca por
+        // apellido: sin índice, una búsqueda sin resultados recorría los ~6M usuarios.
+        const q = leerBusqueda(req);
+        const where = { estado: true };
+        if (q) where.dni = q;
+
+        const filas = q && !/^\d+$/.test(q) ? [] : await Usuario.findAll({
+            where,
+            ...opcionesConsulta(paginacion),
             attributes: { exclude: ['password_hash', 'createdAt', 'updatedAt'] },
             include: [{
                 model: Rol,
@@ -157,7 +169,8 @@ usuarioCtrl.getSocios = async (req, res) => {
             }]
         });
 
-        res.json({status: '1', msg: 'Socios obtenidos correctamente.', usuarios: socios});
+        const { items, ...pagina } = armarPagina(filas, paginacion);
+        res.json({status: '1', msg: 'Socios obtenidos correctamente.', usuarios: items, ...pagina});
     } catch (error) {
         console.error(error);
         res.status(500).json({status: '0', msg: 'Error al obtener los socios'});
