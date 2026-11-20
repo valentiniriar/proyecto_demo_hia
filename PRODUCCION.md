@@ -371,14 +371,17 @@ Desde Internet no se puede llegar a una PC hogareña: tiene IP privada (`192.168
 
 **Solo se publica Nginx.** No hay regla de ingreso hacia la base, Grafana, Mantis ni n8n. Cloudflare además aporta protección básica contra DDoS.
 
-### 10.3 Dos modos
+### 10.3 Tres modos
 
 | Modo | Comando | URL | Uso |
 |---|---|---|---|
-| **Túnel rápido** (actual) | `bash scripts/deploy.sh --tunel` | `https://<palabras-al-azar>.trycloudflare.com`. **Cambia** al reiniciar `cloudflared` o la PC | Demo, sin cuenta ni dominio |
+| **Tailscale Funnel** (principal) | `bash scripts/tailscale-serve.sh` | **`https://gymhub-servidor.tailec3350.ts.net`**, **fija**: no cambia al reiniciar | Gratis, sin dominio. Solo publica la app (`127.0.0.1:80`); lo administrativo sigue solo en la tailnet. Se habilita una vez en la tailnet |
+| **Túnel rápido** (respaldo) | `bash scripts/deploy.sh --tunel` | `https://<palabras-al-azar>.trycloudflare.com`. **Cambia** al reiniciar `cloudflared` o la PC | Demo, sin cuenta ni dominio |
 | **Túnel con nombre** | perfil `tunel` + `CLOUDFLARE_TUNNEL_TOKEN` en `.env.prod` | `https://gymhub.<dominio>`, **fija** | Requiere un dominio en Cloudflare (`docs/SCRUM-60-cloudflare-tunnel.md`) |
 
-Para ver la URL actual: `bash scripts/infra.sh estado`, o `docker logs gymhub_cloudflared_rapido 2>&1 | grep trycloudflare`.
+Para ver la URL actual del túnel rápido: `bash scripts/infra.sh estado`, o `docker logs gymhub_cloudflared_rapido 2>&1 | grep trycloudflare`.
+
+**Funnel:** el tráfico llega a un relay de Tailscale y viaja cifrado hasta `tailscaled` en el servidor, que lo entrega a `127.0.0.1:80` (Nginx). Funciona aunque Docker se reinicie, pero necesita que la PC esté prendida y con Tailscale conectado (servicio de Windows, arranca solo). Estado: `tailscale funnel status`. Apagarlo: `tailscale funnel --https=443 off`.
 
 ---
 
@@ -612,7 +615,8 @@ En la notebook que se lleva:
 
 | Síntoma | Causa | Solución |
 |---|---|---|
-| La URL pública no carga | El túnel se reinició (cambió la URL) o la PC está apagada o sin Internet | `bash scripts/deploy.sh --tunel` y usar la URL nueva |
+| La URL fija (Funnel) no carga | PC apagada, sin Internet o Tailscale desconectado | `tailscale status` y `tailscale funnel status`; si falta, `bash scripts/tailscale-serve.sh` |
+| La URL de Cloudflare no carga | El túnel rápido se reinició (cambió la URL) o Cloudflare lo dio de baja | `bash scripts/vigilar-tunel.sh --forzar` y usar la URL nueva |
 | El runner se conecta pero muestra `Conflict` y no llega a "Listening for Jobs" | Quedó otra instancia del runner abierta, o GitHub todavía no liberó la sesión anterior | Cerrar todas las instancias (procesos `Runner.Listener` y los `cmd` de `iniciar-runner.cmd`), lanzar una sola y esperar unos minutos |
 | `couldn't find env file: C:\c\Users\...` | Git Bash pasó a Docker una ruta `/c/...` | `deploy.sh` usa `pwd -W`; si se arma un comando a mano, usar rutas `C:/...` |
 | El job *Desplegar* queda "esperando un runner" | El runner no está corriendo (por ejemplo, tras un reinicio) | Ejecutar `C:\actions-runner\iniciar-runner.cmd` |
@@ -631,7 +635,7 @@ En la notebook que se lleva:
 ## 20. Limitaciones conocidas
 
 - **Un único servidor doméstico:** un corte de luz o de Internet, la suspensión o un reinicio de Windows dejan todo fuera de servicio. La disponibilidad se mide con `blackbox-publico`.
-- **URL pública inestable:** el túnel rápido cambia de dirección al reiniciarse. Una URL fija requiere un dominio propio en Cloudflare.
+- **URL pública:** la URL fija es la de Funnel (`https://gymhub-servidor.tailec3350.ts.net`). El túnel rápido de Cloudflare queda de respaldo y cambia de dirección al reiniciarse. Un nombre propio (`gymhub.<dominio>`) requiere comprar un dominio y usar el túnel con nombre.
 - **Sin failover automático de la base:** la promoción de la réplica es manual.
 - **El rollback no revierte datos:** los cambios de esquema incompatibles requieren restaurar un backup.
 - **Backups en el mismo disco:** no protegen contra ransomware ni contra la rotura del disco. Mejora: copia periódica fuera del servidor.
