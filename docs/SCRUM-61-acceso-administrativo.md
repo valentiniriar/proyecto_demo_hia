@@ -75,22 +75,25 @@ Requisito previo: app de producción desplegada (`docs/SCRUM-57-despliegue-conti
 
 ### 3.2 Desde cualquier lugar, por la tailnet
 
-Igual que la tabla anterior, cambiando `127.0.0.1` por **`gymhub-servidor.tailec3350.ts.net`** (o `gymhub-servidor`):
+Igual que la tabla anterior, cambiando `127.0.0.1` por la **IP de Tailscale del servidor, `100.65.22.99`**:
 
 | Servicio | URL |
 |---|---|
-| App | http://gymhub-servidor.tailec3350.ts.net/ |
-| Grafana | http://gymhub-servidor.tailec3350.ts.net:3001/ |
-| Prometheus | http://gymhub-servidor.tailec3350.ts.net:9091/ |
-| Alertmanager | http://gymhub-servidor.tailec3350.ts.net:9093/ |
-| Mantis | http://gymhub-servidor.tailec3350.ts.net:8990/ |
-| n8n | http://gymhub-servidor.tailec3350.ts.net:5679/ |
-| Nextcloud | http://gymhub-servidor.tailec3350.ts.net:8082/ |
-| URL pública vigente del túnel | http://gymhub-servidor.tailec3350.ts.net:2000/quicktunnel (métricas de cloudflared) |
-| Estado de HAProxy / Patroni | http://gymhub-servidor.tailec3350.ts.net:7000 (en verde, el nodo líder en `primary`; solo lectura) |
-| Base (pgAdmin/DBeaver) | host `gymhub-servidor.tailec3350.ts.net`, puerto `5436` |
+| App (pública, por Funnel) | https://gymhub-servidor.tailec3350.ts.net/ |
+| App (por la tailnet) | http://100.65.22.99/ |
+| Grafana | http://100.65.22.99:3001/ |
+| Prometheus | http://100.65.22.99:9091/ |
+| Alertmanager | http://100.65.22.99:9093/ |
+| Mantis | http://100.65.22.99:8990/ |
+| n8n | http://100.65.22.99:5679/ |
+| Nextcloud | http://100.65.22.99:8082/ |
+| URL pública vigente del túnel | http://100.65.22.99:2000/quicktunnel (métricas de cloudflared) |
+| Estado de HAProxy / Patroni | http://100.65.22.99:7000 (en verde, el nodo líder en `primary`; solo lectura) |
+| Base (pgAdmin/DBeaver) | host `100.65.22.99` (o `gymhub-servidor.tailec3350.ts.net`), puerto `5436` |
 
 El tráfico viaja cifrado por WireGuard aunque las URL sean `http://`.
+
+**Por qué la IP y no el nombre (20/11/2026).** Al principio los paneles se publicaban con Tailscale Serve en modo HTTP. En ese modo, Serve solo responde si la petición trae el **nombre** del equipo (con la IP devuelve un 404 vacío), y los navegadores fuerzan HTTPS en los nombres `*.ts.net` (lista HSTS precargada): `http://gymhub-servidor.tailec3350.ts.net:3001` se convertía en `https://…` y no cargaba. Ningún compañero podía abrir los paneles desde el navegador. Ahora `scripts/tailscale-serve.sh` publica todo en **modo TCP** (reenvía la conexión tal cual, sin mirar el nombre), y en el navegador se usa la IP. Nextcloud necesita además la IP en `trusted_domains`.
 
 ## 4. Decisiones
 
