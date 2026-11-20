@@ -294,6 +294,8 @@ Pruebas hechas en una PC de desarrollo (Linux, 5,7 GB de RAM), con la base de 6M
 
 ## 8. Migrar producción
 
+> **Hecho el 20/11/2026.** Producción corre sobre Patroni: corte de 3 min 17 s, réplicas clonadas en 52 s y failover probado en producción (nuevo líder en 23 s, `/api/health` 200 todo el tiempo). Detalle y evidencias: [evidencias/SCRUM-48-produccion](evidencias/SCRUM-48-produccion/README.md). Se levantó por etapas (líder → app → réplicas) antes del release, para que el `--wait` de 240 s del CD no cortara el clonado.
+
 Producción tiene hoy `gymhub_db_prod` (primario) y `gymhub_db_replica_prod` (réplica). La migración **adopta** el volumen del primario (`gymhub_prod_db_data`): no hay que exportar ni importar los datos. Es el mismo procedimiento que ya se probó en desarrollo con la base de 6M.
 
 > `scripts/deploy.sh` **se niega a desplegar** mientras existan `gymhub_db_prod` o `gymhub_db_replica_prod`. Si no lo hiciera, `pg-1` arrancaría sobre el mismo volumen que el contenedor viejo y dos PostgreSQL escribiendo los mismos archivos corrompen la base. Por eso los pasos 1 a 4 se hacen **antes** de mergear a `main`.
