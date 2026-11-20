@@ -1,0 +1,157 @@
+Pager usage is off.
+Timing is on.
+==> M1 Mis rutinas (rutinas por usuarioId)
+                                        QUERY PLAN                                         
+-------------------------------------------------------------------------------------------
+ Index Scan using idx_rutinas_usuario on rutinas (actual time=1.360..1.362 rows=1 loops=1)
+   Index Cond: ("usuarioId" = 3)
+   Buffers: shared read=4
+ Planning:
+   Buffers: shared hit=104 read=2
+ Planning Time: 2.254 ms
+ Execution Time: 1.456 ms
+(7 rows)
+
+Time: 4.756 ms
+==> M2 Mis tarifas (tarifas de las suscripciones de un usuario)
+                                                  QUERY PLAN                                                   
+---------------------------------------------------------------------------------------------------------------
+ Nested Loop (actual time=2.486..2.493 rows=2 loops=1)
+   Buffers: shared hit=3 read=5
+   ->  Index Scan using idx_suscripciones_usuario on suscripciones s (actual time=1.844..1.846 rows=1 loops=1)
+         Index Cond: ("usuarioId" = 3)
+         Buffers: shared read=4
+   ->  Index Scan using idx_tarifas_suscripcion on tarifas t (actual time=0.628..0.631 rows=2 loops=1)
+         Index Cond: ("suscripcionId" = s.id)
+         Buffers: shared hit=3 read=1
+ Planning:
+   Buffers: shared hit=212 read=19
+ Planning Time: 8.448 ms
+ Execution Time: 2.552 ms
+(12 rows)
+
+Time: 11.772 ms
+==> M3 Suscripciones de un usuario
+                                              QUERY PLAN                                               
+-------------------------------------------------------------------------------------------------------
+ Index Scan using idx_suscripciones_usuario on suscripciones (actual time=1.463..1.464 rows=0 loops=1)
+   Index Cond: ("usuarioId" = 1234567)
+   Buffers: shared hit=1 read=2
+ Planning:
+   Buffers: shared hit=23
+ Planning Time: 0.266 ms
+ Execution Time: 1.499 ms
+(7 rows)
+
+Time: 2.048 ms
+==> M4 Pagos de una tarifa
+                                   QUERY PLAN                                    
+---------------------------------------------------------------------------------
+ Gather (actual time=1293.926..1473.557 rows=1 loops=1)
+   Workers Planned: 2
+   Workers Launched: 2
+   Buffers: shared read=68182
+   ->  Parallel Seq Scan on pagos (actual time=988.569..1263.019 rows=0 loops=3)
+         Filter: ("tarifaId" = 1234567)
+         Rows Removed by Filter: 2000000
+         Buffers: shared read=68182
+ Planning:
+   Buffers: shared hit=60 read=2
+ Planning Time: 1.885 ms
+ Execution Time: 2001.062 ms
+(12 rows)
+
+Time: 2003.540 ms (00:02.004)
+==> M5 Dashboard: usuarios activos (como hoy: dos COUNT separados)
+                                             QUERY PLAN                                             
+----------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual time=2550.456..2799.099 rows=1 loops=1)
+   Buffers: shared read=134217
+   ->  Gather (actual time=2549.903..2799.059 rows=3 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared read=134217
+         ->  Partial Aggregate (actual time=2496.403..2496.405 rows=1 loops=3)
+               Buffers: shared read=134217
+               ->  Parallel Seq Scan on usuarios (actual time=5.357..2420.671 rows=1840538 loops=3)
+                     Filter: estado
+                     Rows Removed by Filter: 159462
+                     Buffers: shared read=134217
+ Planning:
+   Buffers: shared hit=48 read=3
+ Planning Time: 2.487 ms
+ Execution Time: 2799.629 ms
+(16 rows)
+
+Time: 2805.369 ms (00:02.805)
+==> M6 Dashboard: ingresos (SUM de tarifas pagadas y activas)
+                                            QUERY PLAN                                            
+--------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual time=1069.303..1198.267 rows=1 loops=1)
+   Buffers: shared hit=1 read=56074
+   ->  Gather (actual time=1069.168..1198.259 rows=3 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=1 read=56074
+         ->  Partial Aggregate (actual time=1007.636..1007.637 rows=1 loops=3)
+               Buffers: shared hit=1 read=56074
+               ->  Parallel Seq Scan on tarifas (actual time=0.019..789.763 rows=1600000 loops=3)
+                     Filter: (pagado AND activo)
+                     Rows Removed by Filter: 400000
+                     Buffers: shared hit=1 read=56074
+ Planning:
+   Buffers: shared hit=25 read=2
+ Planning Time: 6.772 ms
+ Execution Time: 1198.327 ms
+(16 rows)
+
+Time: 1205.903 ms (00:01.206)
+==> M7 Dashboard: usuarios por rol
+                                                  QUERY PLAN                                                  
+--------------------------------------------------------------------------------------------------------------
+ Finalize GroupAggregate (actual time=703.958..709.341 rows=3 loops=1)
+   Group Key: id_rol
+   Buffers: shared hit=14 read=26549
+   ->  Gather Merge (actual time=703.953..709.335 rows=9 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=14 read=26549
+         ->  Sort (actual time=607.207..607.208 rows=3 loops=3)
+               Sort Key: id_rol
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=14 read=26549
+               Worker 0:  Sort Method: quicksort  Memory: 25kB
+               Worker 1:  Sort Method: quicksort  Memory: 25kB
+               ->  Partial HashAggregate (actual time=607.132..607.134 rows=3 loops=3)
+                     Group Key: id_rol
+                     Batches: 1  Memory Usage: 24kB
+                     Buffers: shared read=26549
+                     Worker 0:  Batches: 1  Memory Usage: 24kB
+                     Worker 1:  Batches: 1  Memory Usage: 24kB
+                     ->  Parallel Seq Scan on usuario_roles (actual time=0.221..351.257 rows=2000000 loops=3)
+                           Buffers: shared read=26549
+ Planning:
+   Buffers: shared hit=28 read=2
+ Planning Time: 2.173 ms
+ Execution Time: 709.480 ms
+(25 rows)
+
+Time: 712.334 ms
+==> M8 Dashboard: activos e inactivos en UNA pasada (FILTER)
+                                             QUERY PLAN                                              
+-----------------------------------------------------------------------------------------------------
+ Finalize Aggregate (actual time=2748.806..3064.013 rows=1 loops=1)
+   Buffers: shared hit=96 read=134121
+   ->  Gather (actual time=2746.096..3061.648 rows=3 loops=1)
+         Workers Planned: 2
+         Workers Launched: 2
+         Buffers: shared hit=96 read=134121
+         ->  Partial Aggregate (actual time=2695.408..2695.415 rows=1 loops=3)
+               Buffers: shared hit=96 read=134121
+               ->  Parallel Seq Scan on usuarios (actual time=15.662..2431.976 rows=2000000 loops=3)
+                     Buffers: shared hit=96 read=134121
+ Planning Time: 0.051 ms
+ Execution Time: 3073.355 ms
+(12 rows)
+
+Time: 3073.735 ms (00:03.074)
