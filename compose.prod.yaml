@@ -68,6 +68,11 @@ services:
       PATRONI_RESTAPI_PASSWORD: ${PATRONI_RESTAPI_PASSWORD:?PATRONI_RESTAPI_PASSWORD no definida}
   haproxy:
     container_name: gymhub_haproxy_prod
+    # Página de estado (qué nodo es el líder, en verde) SOLO en localhost del servidor; se ve desde la
+    # tailnet con scripts/tailscale-serve.sh. Es de solo lectura (sin "stats admin"). Los puertos de
+    # PostgreSQL (5432/5433) siguen sin publicarse.
+    ports:
+      - "127.0.0.1:${HAPROXY_STATS_PORT:-7000}:7000"
 
   backup:
     container_name: gymhub_backup_prod

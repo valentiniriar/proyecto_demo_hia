@@ -34,6 +34,8 @@ SERVICIOS=(
   "Nextcloud       http ${NCP:-8082}       http://127.0.0.1:${NCP:-8082}"
   # Métricas de cloudflared: /quicktunnel devuelve la URL pública vigente del túnel rápido.
   "Tunel-URL       http 2000               http://127.0.0.1:2000"
+  # Página de estado de HAProxy: qué nodo de Patroni es el líder (en verde). Se actualiza cada 2 s.
+  "HAProxy-Patroni http 7000               http://127.0.0.1:7000"
   "Base-produccion tcp  5436               tcp://127.0.0.1:5436"
 )
 
